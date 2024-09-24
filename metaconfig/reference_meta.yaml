@@ -1,0 +1,48 @@
+hg19:
+  dir: "GRCh37_gencode_v19_CTAT_lib_Apr032020.plug-n-play/ctat_genome_lib_build_dir/"
+  starindex: "starindex"
+  starindex-ercc: "starindex-ercc"
+  gtf: "ref_annot_plus_ercc.gtf"
+  fa: "ref_genome_plus_ercc.fa"
+  macs2_ref_genome: "hs"
+  chrNameLength: "chrNameLength.txt"
+
+hg38:
+  dir: "GRCh38_gencode_v33_CTAT_lib_Apr062020.plug-n-play/ctat_genome_lib_build_dir/"
+  starindex: "starindex"
+  starindex-ercc: "starindex-ercc"
+  gtf: "ref_annot_plus_ercc.gtf"
+  fa: "ref_genome_plus_ercc.fa"
+  macs2_ref_genome: "hs"
+  tss_1k_2kbuff_bed_ref: ""
+  chrNameLength: "chrNameLength.txt"
+  hEpi_sgRNA_library: '/mnt/storage/dept/pedonc/Reference/CRISPR_libraries/hEpi_sgRNA_library_trimmed_1.txt'
+
+mm10:
+  dir: "Mouse_gencode_M24_CTAT_lib_Apr062020.plug-n-play/ctat_genome_lib_build_dir/"
+  starindex: "starindex"
+  starindex-ercc: "starindex-ercc"
+  gtf: "ref_annot_plus_ercc.gtf"
+  fa: "ref_genome_plus_ercc.fa"
+  macs2_ref_genome: "mm"
+  chrNameLength: "chrNameLength.txt"
+
+dm6:
+  dir: "Drosophila_melanogaster_UCSC/"
+  starindex: "starindex"
+  starindex-ercc: "starindex"
+  gtf: ""
+  fa: ""
+  chrNameLength: ""
+
+
+
+chrNameLength:
+  dir: "GRCh38_gencode_v33_CTAT_lib_Apr062020.plug-n-play/ctat_genome_lib_build_dir/"
+  starindex: "starindex"
+  starindex-ercc: "starindex-ercc"
+  txt: "chrNameLength.txt"
+
+#tss_1k_2kbuff_bed_ref:
+ # dir: "gene_spans/"
+ # bed: "GRCh38_gencode_v33_CTAT_lib_Apr062020_unique_protcoding_tx_TSS+1k_2kbuffer_coords.bed"

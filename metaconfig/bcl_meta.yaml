@@ -1,0 +1,15 @@
+Experiment1:
+  run_date: 2020-06-22
+  raw_bcl_path: "demultiplex_path/"
+  sample_sheet_name: "sample_sheet_path"
+
+Experiment2:
+  run_date: 2021-05-03
+  raw_bcl_path: "demultiplex_path/"
+  sample_sheet_name: "sample_sheet_path"
+
+Experiment3:
+  run_date: 2023-12-15
+  raw_bcl_path: "demultiplex_path/"
+  sample_sheet_name: "sample_sheet_path"
+

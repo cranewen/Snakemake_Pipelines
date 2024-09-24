@@ -1,0 +1,73 @@
+# This file stores genome annotations information (gene spans, tss spans, gene list, blacklist)
+hg19:
+  gene_spans:
+    protcoding_gene_spans:
+      dir: "GRCh37_gencode_v19_CTAT_lib_Mar272019_protcoding_gene_spans.bed"
+    unique_protcoding_gene_tx_spans:
+      dir: "GRCh37_gencode_v19_CTAT_lib_Mar272019_unique_protcoding_tx_spans.bed"
+  tss_spans:
+    unique_protcoding_gene_tx_TSS_coords:
+      dir: "GRCh37_gencode_v19_CTAT_lib_Mar272019_protcoding_tx_unique_TSS_coords.bed"
+    unique_protcoding_tx_TSS+1k_2kbuffer_coords:
+      dir: "GRCh37_gencode_v19_CTAT_lib_Mar272019_protcoding_tx_span_TSS+1kb_coords.bed"
+  gene_lists:
+    protcoding_genes:
+      dir: "hg19_UCSC_refGene_curated_protcoding_canonicalchrom_sitepro_gene_list_CH-20191015.txt"
+  blacklist:
+    blacklist:
+      dir: "CaptureC/hg19_CCseqBasic_Boyle_blacklist_regions_v2.bed"
+  enhancers:
+    GRCh37:
+      dir: "GRCh37_RefSeq_v105.20190906_canonicalchrom_enhancers.bed"
+
+
+hg38:
+  gene_spans:
+    protcoding_gene_spans:
+      dir: "GRCh38_gencode_v33_CTAT_lib_Apr062020_protcoding_gene_spans.bed"
+    unique_protcoding_gene_tx_spans:
+      dir: "GRCh38_gencode_v33_CTAT_lib_Apr062020_unique_protcoding_tx_spans.bed"
+  tss_spans:
+    unique_protcoding_gene_tx_TSS_coords:
+      dir: "GRCh38_gencode_v33_CTAT_lib_Apr062020_unique_protcoding_tx_TSS_coords.bed"
+    unique_protcoding_tx_TSS+1k_2kbuffer_coords:
+      dir: "GRCh38_gencode_v33_CTAT_lib_Apr062020_unique_protcoding_tx_TSS+1k_2kbuffer_coords.bed"
+  gene_lists:
+    protcoding_genes:
+      dir: "hg38_gencode_v29_proteinCoding_gene_list_CH-20190820.txt"
+  blacklist:
+    blacklist:
+      dir: "CaptureC/hg38_CCseqBasic_Boyle_blacklist_regions_v2.bed"
+  enhancers:
+    GRCh38:
+      dir: "GRCh38_RefSeq_v109.20191205_canonicalchrom_enhancers.bed"
+    GRCh38_bedtools_intersect:
+      dir: "GRCh38_RefSeq_v109.20191205_canonicalchrom_enhancers_bedtools_intersect.bed"
+    MOLM13:
+      dir: "MOLM13_ABC_enhancer_coordinates_hg38_liftover-20210527.bed"
+    MV411:
+      dir: "MV411_ABC_enhancer_coordinates_hg38_liftover-20210527.bed"
+
+
+mm10:
+  gene_spans:
+    protcoding_gene_spans:
+      dir: "Mouse_gencode_M24_CTAT_lib_Apr062020_proteincoding_gene_spans.bed"
+    unique_protcoding_gene_tx_spans:
+      dir: ""
+  tss_spans:
+    unique_protcoding_gene_tx_TSS_coords:
+      dir: "Mouse_gencode_M24_CTAT_lib_Apr062020_proteincoding_gene_span_TSS_coords.bed"
+    unique_protcoding_tx_TSS+1k_2kbuffer_coords:
+      dir: "Mouse_gencode_M24_CTAT_lib_Apr062020_unique_protcoding_tx_TSS+1k_2kbuffer_coords.bed"
+  gene_lists:
+    protcoding_genes:
+      dir: "mm10_gencode_M24_proteinCoding_gene_list_CH-20200921.txt"
+  enhancers:
+    mm10:
+      dir: ""
+  blacklist:
+    blacklist:
+      dir: "CaptureC/mm10_CCseqBasic_Boyle_blacklist_regions_v2.bed"
+
+

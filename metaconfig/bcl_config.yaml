@@ -1,0 +1,2 @@
+dataset_bcl_demultiplex: "path_to_demultiplex/"
+dataset_bcl2fastq: "bcl2fastq/" # a subdirectory of project_bcl_demultiplex

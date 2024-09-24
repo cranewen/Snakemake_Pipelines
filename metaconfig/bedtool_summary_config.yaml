@@ -1,0 +1,35 @@
+Experiment1:
+  Sample_S7:
+    type:
+        "input"
+    group_samples:
+        - "Sample_S8"
+        - "Sample_S9"
+    color:
+        "GREY_E0E0E0"
+  Sample_S1:
+    type:
+        "sample"
+    group_samples:
+        - "Sample_S2"
+        - "Sample_S3"
+    color:
+        "T_CCFFFF"
+  Sample_S10:
+    type:
+        "input"
+    group_samples:
+        - "Sample_S11"
+        - "Sample_S12"
+    color:
+        "Y_FFFFCC"
+  Sample_S4:
+    type:
+        "sample"
+    group_samples:
+        - "Sample_S5"
+        - "Sample_S6"
+    color:
+        "G_CCFFCC"
+
+

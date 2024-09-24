@@ -1,0 +1,51 @@
+from metaparser.crisprstrategyparser import CRISPRStrategyParser
+from metaparser.dirbuilder import DirBuilder
+from metaparser.metaconf import ArgosTools
+from metaparser.metaconf import *
+
+dataset = config['dataset']
+ref_genome = config['ref_genome']
+
+dirs = DirBuilder(dataset)
+dirs.build_sgrnaseq_dirs(ref_genome)
+
+print(dirs.mageck_vispr_dir)
+print(dirs.crispr_input_dir)
+print(dirs.mvispr_output_dir)
+
+crispr = CRISPRStrategyParser(dataset, ref_genome)
+crispr.get_crispr_strategy()
+crispr.get_crispr_meta()
+crispr.crispr_prep()
+
+output_dir = '/mnt/storage/dept/pedonc/CPCT/projects/MCF7_NO-202204/mageck-vispr/' + dataset + '/mvispr_' + dataset
+input_dir = '/mnt/storage/dept/pedonc/CPCT/projects/MCF7_NO-202204/mageck-vispr/' + dataset + '/input'
+#output_dir = '/mnt/storage/dept/pedonc/CPCT/projects/OCIAML3-NPM1c-FKBP_HU-202001/mageck-vispr/' + dataset + '/mvispr_' + dataset
+#input_dir = '/mnt/storage/dept/pedonc/CPCT/projects/OCIAML3-NPM1c-FKBP_HU-202001/mageck-vispr/' + dataset + '/input'
+
+
+'''
+rule all:
+    input:
+            expand("{output_dir}/{strategies}/results/mle.vispr.yaml", output_dir=output_dir, strategies=strategies)
+
+
+rule run_mageck_vispr:
+    input:
+            expand("{output_dir}/{strategies}/Snakefile", output_dir=output_dir, strategies=strategies)
+        
+    output:
+            "{output_dir}/{strategies}/results/mle.vispr.yaml"
+
+
+    params:
+            strategies = lambda wildcards: "{strategies}"
+
+
+    shell:
+        """
+            cd {output_dir}/{wildcards.strategies}
+            #touch test.txt
+            /mnt/storage/dept/pedonc/src/miniconda2/envs/mageck-vispr/bin/snakemake --core 20
+        """
+'''

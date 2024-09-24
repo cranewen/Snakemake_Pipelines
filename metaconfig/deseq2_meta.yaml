@@ -1,0 +1,33 @@
+RNAseq_1:
+  Sample_S1:
+    cellline: "celline_name"
+    treatment: "DMSO"
+    timepoint: "24h"
+  Sample_S2:
+    cellline: "celline_name"
+    treatment: "DMSO"
+    timepoint: "24h"
+  Sample_S3:
+    cellline: "celline_name"
+    treatment: "treatment1"
+    timepoint: "24h"
+  Sample_S4:
+    cellline: "celline_name"
+    treatment: "treatment1"
+    timepoint: "24h"
+  Sample_S5:
+    cellline: "celline_name"
+    treatment: "DMSO"
+    timepoint: "48h"
+  Sample_S6:
+    cellline: "celline_name"
+    treatment: "DMSO"
+    timepoint: "48h"
+  Sample_S7:
+    cellline: "celline_name"
+    treatment: "treatment1"
+    timepoint: "48h"
+  Sample_S8:
+    cellline: "celline_name"
+    treatment: "treatment1"
+    timepoint: "48h"

@@ -1,0 +1,7 @@
+Experiment1:
+  run_date: 2020-08-07
+  project: "project_A_path"
+
+Experiment2:
+  run_date: 2023-09-15
+  project: "project_B_path"

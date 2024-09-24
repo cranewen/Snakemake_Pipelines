@@ -1,0 +1,102 @@
+from metaparser.bclmetaparser import BclMetaParser
+from metaparser.dirbuilder import DirBuilder
+from metaparser.argosmetaparser import ArgosMetaParser
+from metaparser.metaconf import ArgosTools
+from metaparser.sampleparser import SampleParser
+from tool.fastqc import Fastqc
+import yaml
+
+# Dataset name is passed as a parameter when snakemake is called
+dataset = config['dataset']
+
+# Creating all the diretories for snakemake rules
+dirs = DirBuilder(dataset)
+dirs.build_bclfastq_dirs()
+
+# Find all samples associated with specified dataset
+sample_parser = SampleParser()
+sample_parser.get_sample_list(dataset)
+sample = sample_parser.sample_list
+
+dataset_dir = dirs.dataset_dir
+log_dir = dataset_dir + 'logs'
+
+sample_sheet_path = dirs.sample_sheet
+
+bcl_input_dir = dirs.bcl_demultiplex_dir
+
+fastq_output_dir = dirs.fastq_output_dir[:-1]
+
+fastq_merged_dir = dirs.merged_fastq_dir[:-1]
+fastqc_dir = dirs.fastqc_dir
+
+multiqc_dir = dirs.multiqc_dir[:-1]
+
+# setting up all the tools 
+argos_bcl2fastq = ArgosMetaParser(ArgosTools.ARGOS_CONFIG_PATH.value)
+argos_bcl2fastq = argos_bcl2fastq.set_tool(ArgosTools.BCL2FASTQ)
+
+argos_fastqc = ArgosMetaParser(ArgosTools.ARGOS_CONFIG_PATH.value)
+argos_fastqc = argos_fastqc.set_tool(ArgosTools.FASTQC)
+
+argos_multiqc = ArgosMetaParser(ArgosTools.ARGOS_CONFIG_PATH.value)
+argos_multiqc = argos_multiqc.set_tool(ArgosTools.MULTIQC)
+
+#log files 
+bcl2fastq_output_log = log_dir + '/' + dataset + '_bcl2fastq.out'
+bcl2fastq_error_log = log_dir + '/' + dataset + '_bcl2fastq.err'
+merge_fastq_output_log = log_dir + '/' + dataset + '_merge_fastq.out'
+merge_fastq_error_log = log_dir + '/' + dataset + '_merge_fastq.err'
+fastqc_output_log = log_dir + '/' + dataset + '_fastqc.out'
+fastqc_error_log = log_dir + '/' + dataset + '_fastqc.err'
+multiqc_output_log = log_dir + '/' + dataset + '_multiqc.out'
+multiqc_error_log = log_dir + '/' + dataset + '_multiqc.err'
+
+
+rule all:
+        input:
+                expand("{multiqc_dir}/multiqc_report.html", multiqc_dir=multiqc_dir)
+
+rule bcl2fastq:
+        output:
+                expand("{log_dir}/{dataset}_bcl2fastq.ok", log_dir=log_dir, dataset=dataset)
+        shell:
+                """
+                mkdir -p {dataset_dir} {log_dir}
+                {argos_bcl2fastq} -R {bcl_input_dir} -o {fastq_output_dir} --sample-sheet {sample_sheet_path} --barcode-mismatches 0 1> {bcl2fastq_output_log} 2> {bcl2fastq_error_log}
+                if grep -q 'Processing completed with 0 errors and 0 warnings' {bcl2fastq_error_log}; then touch {log_dir}/{dataset}_bcl2fastq.ok; fi
+                """
+
+rule merge_fastq:
+        input:
+                expand("{log_dir}/{dataset}_bcl2fastq.ok", log_dir=log_dir, dataset=dataset)
+        output:
+                R1="{fastq_merged_dir}/{sample}_R1_merged.fastq.gz",
+        params:
+                sample = lambda wildcards: "{sample}"
+        shell:
+                """
+                mkdir -p {fastq_merged_dir}
+                cat {fastq_output_dir}/{wildcards.sample}*_R1*fastq.gz > {output.R1}
+                """
+
+rule fastqc:
+        input:
+                R1=expand("{fastq_merged_dir}/{sample}_R1_merged.fastq.gz", fastq_merged_dir=fastq_merged_dir, sample=sample),
+        output:
+                expand("{fastqc_dir}{sample}_R1_merged_fastqc.html", fastq_output_dir=fastq_output_dir, sample=sample, fastqc_dir=fastqc_dir),
+                expand("{fastqc_dir}{sample}_R1_merged_fastqc.zip", fastq_output_dir=fastq_output_dir, sample=sample, fastqc_dir=fastqc_dir),
+        shell:
+                """
+                mkdir -p {fastqc_dir}
+                {argos_fastqc} -t 32 {input.R1} -o {fastqc_dir} 1> {fastqc_output_log} 2> {fastqc_error_log}
+                """
+
+rule multiqc:
+        input:
+                R1=expand("{fastqc_dir}{sample}_R1_merged_fastqc.zip", fastq_output_dir=fastq_output_dir, sample=sample, fastqc_dir=fastqc_dir),
+        output:
+                expand("{multiqc_dir}/multiqc_report.html", multiqc_dir=multiqc_dir)
+        shell:
+                "{argos_multiqc} {input.R1} -o {multiqc_dir} 1> {multiqc_output_log} 2> {multiqc_error_log}"
+			

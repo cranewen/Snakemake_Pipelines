@@ -1,0 +1,18 @@
+RNAseq_1:
+  cellline_name_treatment1_5uM_24h_vs_cellline_name_DMSO_24h_allSamples:
+    - "cellline=cellline_name"
+    - "treatment:timepoint"
+    - "group:treatment1.24h:DMSO.24h"
+  cellline_name_treatment1_5uM_48h_vs_cellline_name_DMSO_48h_allSamples:
+    - "cellline=cellline_name"
+    - "treatment:timepoint"
+    - "group:treatment1.48h:DMSO.48h"
+  cellline_name_treatment1_DMSO_48h_vs_cellline_name_DMSO_24h_allSamples:
+    - "cellline=cellline_name"
+    - "treatment:timepoint"
+    - "group:treatment1.48h:treatment1.24h"
+  cellline_name_treatment1_5uM_48h_vs_cellline_name_treatment1_5uM_24h_allSamples:
+    - "cellline=cellline_name"
+    - "treatment:timepoint"
+    - "group:DMSO.48h:DMSO.24h"
+

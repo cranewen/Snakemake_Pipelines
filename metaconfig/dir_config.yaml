@@ -1,0 +1,8 @@
+dataset_bcl_demultiplex: "/mnt/storage/dept/pedonc/CPCT/projects/bcl2fastq_demultiplex/"
+dataset_bcl2fastq: "bcl2fastq/" # a subdirectory of project_bcl_demultiplex
+
+root_project_path: "/mnt/storage/dept/pedonc/CPCT/projects/"
+reference_path: "/mnt/storage/dept/pedonc/Reference/"
+gene_spans_path: "/mnt/storage/dept/pedonc/Reference/gene_spans/"
+gene_lists_path: "/mnt/storage/dept/pedonc/Reference/gene_lists/"
+crispr_libraries_path: "/mnt/storage/dept/pedonc/Reference/CRISPR_libraries/"

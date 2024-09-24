@@ -1,0 +1,30 @@
+argos_bin_path: "/server_path/envs/pipeline/bin/"
+argos_bin_path_snakemake: "/server_path/envs/snakemake/bin/"
+argos_ngsplot_path: "/server_path/ngsplot/bin/"
+
+bcl2fastq: "bcl2fastq" 
+bedtools: "bedtools"
+bowtie2: "bowtie2"
+bamCoverage: "bamCoverage"
+
+computeMatrix: "computeMatrix"
+
+fastqc: "fastqc"
+
+htseq_count: 'htseq-count'
+
+igvtools: "igvtools"
+
+multiqc: "multiqc"
+macs2: "macs2"
+
+ngsplot: "ngs.plot.r"
+
+picard: "picard"
+plotHeatmap: "plotHeatmap"
+
+samtools: "samtools"
+STAR: "STAR"
+
+Rscript: "Rscript"
+

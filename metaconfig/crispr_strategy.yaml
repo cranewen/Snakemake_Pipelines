@@ -1,0 +1,22 @@
+Experiment1:
+    Condition1_DMSO:
+        "treatment=Condition1:DMSO"
+    Condition1_Condition2:
+        #"treatment: "combo"
+        "treatment=Condition1:Condition2"
+    Condition1_Condition3:
+        "treatment=Condition1:Condition3"
+    Condition1_Condition4:
+        "treatment=Condition1:Condition4"
+    Condition2_DMSO:
+        #treatment: "combo"
+        "treatment=Condition2:DMSO"
+    Condition3_DMSO:
+        "treatment=Condition3:DMSO"
+    Condition4_DMSO:
+        "treatment=Condition4:DMSO"
+    Condition4_Condition2:
+        #treatment: "combo"
+        "treatment=Condition4:Condition2"
+    Condition4_Condition3:
+        "treatment=Condition4:Condition3"

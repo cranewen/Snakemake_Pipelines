@@ -1,0 +1,342 @@
+from metaparser.bclmetaparser import BclMetaParser
+from metaparser.dirbuilder import DirBuilder
+from metaparser.argosmetaparser import ArgosMetaParser
+from metaparser.metaconf import ArgosTools
+from metaparser.sampleparser import SampleParser
+from metaparser.tornadostrategyparser import TornadoStrategyParser
+from tool.fastqc import Fastqc
+from tool.fileconvertor import FileConvertor
+import yaml
+
+# Dataset name and ref genome are passed as parameters when snakemake is called
+dataset = config['dataset']
+ref_genome = config['ref_genome']
+
+# Configable args for deeptools arguments
+#missing_data_zero = config['missing_data_zero']
+#dpi = config['dpi']
+
+# Creating all the diretories for snakemake rules
+dirs = DirBuilder(dataset)
+dirs.build_bclfastq_dirs()
+
+# Getting samples associated with specified dataset (all the samples from sample.yaml)
+sample_parser = SampleParser()
+sample_parser.get_sample_list(dataset)
+sample = sample_parser.sample_list
+
+dirs.build_chipseq_dirs(ref_genome)
+dirs.build_tornado_deeptools_dirs(ref_genome)
+bigwig_dir = dirs.bigwig_dir
+bigwig_rmdup_dataset_dir = dirs.bigwig_rmdup_dataset_dir
+deeptools_dir = dirs.deeptools_dir
+matrix_dir = dirs.matrix_dir
+matrix_rmdup_dataset_dir = dirs.matrix_rmdup_dataset_dir[:-1]
+
+matrix_rmdup_dataset_dir_reference_point = matrix_rmdup_dataset_dir + "/reference_point/"
+matrix_rmdup_dataset_dir_reference_point = matrix_rmdup_dataset_dir_reference_point[:-1] 
+matrix_rmdup_dataset_dir_scaled_regions = matrix_rmdup_dataset_dir + "/scaled_regions/"
+matrix_rmdup_dataset_dir_scaled_regions = matrix_rmdup_dataset_dir_scaled_regions[:-1] 
+
+heatmap_dir = dirs.heatmap_dir
+heatmap_rmdup_dataset_dir = dirs.heatmap_rmdup_dataset_dir[:-1]
+
+
+heatmap_rmdup_dataset_dir_reference_point = heatmap_rmdup_dataset_dir + "/reference_point/"
+heatmap_rmdup_dataset_dir_reference_point = heatmap_rmdup_dataset_dir_reference_point[:-1] 
+heatmap_rmdup_dataset_dir_scaled_regions = heatmap_rmdup_dataset_dir + "/scaled_regions/"
+heatmap_rmdup_dataset_dir_scaled_regions = heatmap_rmdup_dataset_dir_scaled_regions[:-1]
+
+# tornado ngsplot variables
+
+dirs.build_tornado_dirs(ref_genome)
+tornado_dir = dirs.tornado_dir
+tornado_dataset_dir = dirs.tornado_dataset_dir[:-1]
+tornado_sorted_dataset_dir = dirs.tornado_sorted_dataset_dir[:-1]
+tornado_rmdup_dataset_dir = dirs.tornado_rmdup_dataset_dir[:-1]
+tornado_sorted_config_dir = dirs.tornado_sorted_config_dir[:-1]
+tornado_rmdup_config_dir = dirs.tornado_rmdup_config_dir[:-1]
+config["tornado_sorted_config_dir"] = tornado_sorted_config_dir
+config["tornado_rmdup_config_dir"] = tornado_rmdup_config_dir
+
+# tornado strategy for heatmap labels
+tornado = TornadoStrategyParser(dataset)
+tornado.get_tornado_strategy()
+tornado.get_computeMatrix_results(ref_genome)
+# for ngsplot
+tornado_result = tornado.tornado_result
+# used for ngsplot's shell script parameters
+# e.g. -R tss, -L 3000
+tornado_ngsplot_dict = tornado.tornado_ngsplot_dict
+
+# a dictionary for computeMatrix step, using with computeMatrix_results_list
+computeMatrix_results_dict = tornado.computeMatrix_results_dict
+computeMatrix_results_list = [k for k in computeMatrix_results_dict.keys()]
+tornado_label = tornado.tornado_label
+
+## config input parameter
+config['bigwig_sorted_dataset_dir'] = bigwig_sorted_dataset_dir
+config['bigwig_rmdup_dataset_dir'] = bigwig_rmdup_dataset_dir
+config['matrix_sorted_dataset_dir_scaled_regions'] = matrix_sorted_dataset_dir_scaled_regions
+config['matrix_rmdup_dataset_dir_scaled_regions'] = matrix_rmdup_dataset_dir_scaled_regions
+config['matrix_sorted_dataset_dir_reference_point'] = matrix_sorted_dataset_dir_reference_point
+config['matrix_rmdup_dataset_dir_reference_point'] = matrix_rmdup_dataset_dir_reference_point
+config['bigwig_sorted_dataset_dir_reference_point'] = bigwig_sorted_dataset_dir
+config['bigwig_rmdup_dataset_dir_reference_point'] = bigwig_rmdup_dataset_dir
+
+
+# Setting up all the tools
+argos = ArgosMetaParser(ArgosTools.ARGOS_CONFIG_PATH.value)
+argos_computeMatrix = argos.set_tool(ArgosTools.COMPUTEMATRIX)
+argos_plotHeatmap = argos.set_tool(ArgosTools.PLOTHEATMAP)
+argos_R = argos.set_tool(ArgosTools.RSCRIPT)
+# ngsplot tool for the tornado plot
+argos_ngsplot = argos.set_tool_ngsplot(ArgosTools.NGSPLOT)
+
+config['computeMatrix_results_dict'] = computeMatrix_results_dict
+config['bigwig_rmdup_dataset_dir'] = bigwig_rmdup_dataset_dir
+
+
+def sample_list_to_str(file_path, sample_list, ref_genome):
+    full_file_path_list = ''
+    if 'rmdup' in file_path:
+        full_file_path_list = [file_path + '/' + s + '_' + ref_genome + '_sorted_readgps_rmdup.bw' for s in sample_list]
+    else:
+        full_file_path_list = [file_path + '/' + s + '_' + ref_genome + '_sorted_readgps.bw' for s in sample_list]
+
+    return(' '.join(full_file_path_list))
+
+
+def bigwig_rmdup_out():
+    print('')
+
+def matrix_scaled_regions_out():
+    print('')
+
+def heatmap_scaled_out():
+    print('')
+
+def matrix_reference_point_out():
+    print('')
+
+def heatmap_reference_point_out():
+    print('')
+
+
+
+rule all:
+            input:
+                expand("{matrix_rmdup_dataset_dir_scaled_regions}/{computeMatrix_results_list}_{ref_genome}_sorted_rmdup_readgps_scaledRegions_matrix.gz", matrix_rmdup_dataset_dir_scaled_regions=matrix_rmdup_dataset_dir_scaled_regions, computeMatrix_results_list=computeMatrix_results_list, ref_genome=ref_genome),
+                expand("{heatmap_rmdup_dataset_dir_scaled_regions}/{computeMatrix_results_list}_{ref_genome}_sorted_rmdup_scaledRegions_heatmap.svg", heatmap_rmdup_dataset_dir_scaled_regions=heatmap_rmdup_dataset_dir_scaled_regions, computeMatrix_results_list=computeMatrix_results_list, ref_genome=ref_genome),
+                expand("{matrix_rmdup_dataset_dir_reference_point}/{computeMatrix_results_list}_{ref_genome}_sorted_rmdup_readgps_referencePoint_matrix.gz", matrix_rmdup_dataset_dir_reference_point=matrix_rmdup_dataset_dir_reference_point, computeMatrix_results_list=computeMatrix_results_list, ref_genome=ref_genome),
+                expand("{heatmap_rmdup_dataset_dir_reference_point}/{computeMatrix_results_list}_{ref_genome}_sorted_rmdup_referencePoint_heatmap.svg", heatmap_rmdup_dataset_dir_reference_point=heatmap_rmdup_dataset_dir_reference_point, computeMatrix_results_list=computeMatrix_results_list, ref_genome=ref_genome),
+                expand("{tornado_rmdup_dataset_dir}/{tornado_result}_rmdup.avgprof.pdf", tornado_rmdup_dataset_dir=tornado_rmdup_dataset_dir, tornado_result=tornado_result),
+                expand("{tornado_rmdup_dataset_dir}/{tornado_result}_rmdup.heatmap.pdf", tornado_rmdup_dataset_dir=tornado_rmdup_dataset_dir, tornado_result=tornado_result)
+
+
+
+# scaled_regions matrix and heatmap
+
+
+
+
+rule run_computeMatrix_rmdup_scaled_regions:
+            input:
+                expand("{bigwig_rmdup_dataset_dir}/bigwig_rmdup.ok", bigwig_rmdup_dataset_dir=bigwig_rmdup_dataset_dir)
+            output:
+                "{matrix_rmdup_dataset_dir_scaled_regions}/{computeMatrix_results_list}_{ref_genome}_sorted_rmdup_readgps_scaledRegions_matrix.gz"
+
+            params:
+                samples = lambda computeMatrix_results_list: sample_list_to_str(bigwig_rmdup_dataset_dir, computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['sample'], ref_genome),
+                interval_ref = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['interval_ref'],
+                blacklist = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['blacklist'],
+                region = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['region']
+
+
+
+            shell:
+                """
+                    mkdir -p {matrix_dir}
+                    mkdir -p {matrix_rmdup_dataset_dir_scaled_regions}
+                    {argos_computeMatrix} scale-regions -S {params.samples} -R {params.interval_ref} {params.region} -bl {params.blacklist} --smartLabels -p 2 -o {output} 
+
+                """
+
+
+rule run_plotHeatmap_sorted_scaled_regions:
+            input:
+                expand(config['matrix_sorted_dataset_dir_scaled_regions'] + "/{{computeMatrix_results_list}}_{{ref_genome}}_sorted_readgps_scaledRegions_matrix.gz")
+            output:
+                r1 = "{heatmap_sorted_dataset_dir_scaled_regions}/{computeMatrix_results_list}_{ref_genome}_sorted_scaledRegions_heatmap.svg",
+                r2 = "{heatmap_sorted_dataset_dir_scaled_regions}/{computeMatrix_results_list}_{ref_genome}_sorted_scaledRegions.bed"
+            params:
+                labels = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['label']
+
+            shell:
+                """
+                    mkdir -p {heatmap_dir}
+                    mkdir -p {heatmap_sorted_dataset_dir_scaled_regions}
+                    {argos_plotHeatmap} --matrixFile {input} --outFileName {output.r1} --outFileSortedRegions {output.r2} --colorMap Reds --whatToShow 'plot, heatmap and colorbar' --samplesLabel {params.labels} --kmeans 1
+                """
+
+
+
+rule run_plotHeatmap_rmdup_scaled_regions:
+            input:
+                expand(config['matrix_rmdup_dataset_dir_scaled_regions'] + "/{{computeMatrix_results_list}}_{{ref_genome}}_sorted_rmdup_readgps_scaledRegions_matrix.gz")
+            output:
+                r1 = "{heatmap_rmdup_dataset_dir_scaled_regions}/{computeMatrix_results_list}_{ref_genome}_sorted_rmdup_scaledRegions_heatmap.svg",
+                r2 = "{heatmap_rmdup_dataset_dir_scaled_regions}/{computeMatrix_results_list}_{ref_genome}_sorted_rmdup_scaledRegions.bed"
+            params:
+                labels = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['label']
+
+            shell:
+                """
+                    mkdir -p {heatmap_dir}
+                    mkdir -p {heatmap_rmdup_dataset_dir_scaled_regions}
+                    {argos_plotHeatmap} --matrixFile {input} --outFileName {output.r1} --outFileSortedRegions {output.r2} --colorMap Reds --whatToShow 'plot, heatmap and colorbar' --plotFileFormat svg --samplesLabel {params.labels} --kmeans 1
+                """
+
+
+# reference_point matrix and heatmap
+
+
+
+rule run_computeMatrix_sorted_reference_point:
+            input:
+                expand("{bigwig_sorted_dataset_dir}/bigwig_sorted.ok", bigwig_sorted_dataset_dir=bigwig_sorted_dataset_dir)
+            output:
+                "{matrix_sorted_dataset_dir_reference_point}/{computeMatrix_results_list}_{ref_genome}_sorted_readgps_referencePoint_matrix.gz"
+
+            params:
+                samples = lambda computeMatrix_results_list: sample_list_to_str(bigwig_sorted_dataset_dir, computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['sample'], ref_genome),
+                interval_ref = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['interval_ref'],
+                blacklist = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['blacklist'],
+                region = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['region']
+
+
+
+            shell:
+                """
+                    mkdir -p {matrix_dir}
+                    mkdir -p {matrix_sorted_dataset_dir_reference_point}
+                    {argos_computeMatrix} reference-point -S {params.samples} -R {params.interval_ref} {params.region} -bl {params.blacklist} --smartLabels -p 2 -o {output} 
+
+                """
+
+
+
+
+
+rule run_computeMatrix_rmdup_reference_point:
+            input:
+                expand("{bigwig_rmdup_dataset_dir}/bigwig_rmdup.ok", bigwig_rmdup_dataset_dir=bigwig_rmdup_dataset_dir)
+            output:
+                "{matrix_rmdup_dataset_dir_reference_point}/{computeMatrix_results_list}_{ref_genome}_sorted_rmdup_readgps_referencePoint_matrix.gz"
+
+            params:
+                samples = lambda computeMatrix_results_list: sample_list_to_str(bigwig_rmdup_dataset_dir, computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['sample'], ref_genome),
+                interval_ref = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['interval_ref'],
+                blacklist = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['blacklist'],
+                region = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['region']
+
+
+
+            shell:
+                """
+                    mkdir -p {matrix_dir}
+                    mkdir -p {matrix_rmdup_dataset_dir_reference_point}
+                    {argos_computeMatrix} reference-point -S {params.samples} -R {params.interval_ref} {params.region} -bl {params.blacklist} --smartLabels -p 2 -o {output}
+
+                """
+
+
+
+rule run_plotHeatmap_sorted_reference_point:
+            input:
+                expand(config['matrix_sorted_dataset_dir_reference_point'] + "/{{computeMatrix_results_list}}_{{ref_genome}}_sorted_readgps_referencePoint_matrix.gz")
+            output:
+                r1 = "{heatmap_sorted_dataset_dir_reference_point}/{computeMatrix_results_list}_{ref_genome}_sorted_referencePoint_heatmap.svg",
+                r2 = "{heatmap_sorted_dataset_dir_reference_point}/{computeMatrix_results_list}_{ref_genome}_sorted_sorted_regions.bed"
+            params:
+                labels = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['label']
+
+            shell:
+                """
+                    mkdir -p {heatmap_dir}
+                    mkdir -p {heatmap_sorted_dataset_dir_reference_point}
+                    {argos_plotHeatmap} --matrixFile {input} --outFileName {output.r1} --outFileSortedRegions {output.r2} --colorMap Reds --whatToShow 'plot, heatmap and colorbar' --samplesLabel {params.labels} --kmeans 1
+
+                """
+
+
+
+
+rule run_plotHeatmap_rmdup_reference_point:
+            input:
+                expand(config['matrix_rmdup_dataset_dir_reference_point'] + "/{{computeMatrix_results_list}}_{{ref_genome}}_sorted_rmdup_readgps_referencePoint_matrix.gz")
+            output:
+                r1 = "{heatmap_rmdup_dataset_dir_reference_point}/{computeMatrix_results_list}_{ref_genome}_sorted_rmdup_referencePoint_heatmap.svg",
+                r2 = "{heatmap_rmdup_dataset_dir_reference_point}/{computeMatrix_results_list}_{ref_genome}_sorted_rmdup_sorted_regions.bed"
+            params:
+                labels = lambda computeMatrix_results_list: computeMatrix_results_dict[computeMatrix_results_list.computeMatrix_results_list]['label']
+
+            shell:
+                """
+                    mkdir -p {heatmap_dir}
+                    mkdir -p {heatmap_rmdup_dataset_dir_reference_point}
+                    {argos_plotHeatmap} --matrixFile {input} --outFileName {output.r1} --outFileSortedRegions {output.r2} --colorMap Reds --whatToShow 'plot, heatmap and colorbar' --plotFileFormat svg --samplesLabel {params.labels} --kmeans 1
+
+                """
+
+rule run_ngsplot_sorted:
+            input:
+                # using config to eliminate the unmatch error between input and output
+                expand(config["tornado_sorted_config_dir"] + "/{{tornado_result}}_config.txt")
+            output:
+                "{tornado_sorted_dataset_dir}/{tornado_result}_sorted.avgprof.pdf",
+                "{tornado_sorted_dataset_dir}/{tornado_result}_sorted.heatmap.pdf"
+
+            params:
+                    tornado_sorted_dataset_dir = lambda wildcards: "{tornado_sorted_dataset_dir}",
+                    tornado_result = lambda wildcards: "{tornado_result}",
+                    # for -R argument which is the 'type' in the yaml file
+                    r_param = lambda tornado_result: tornado_ngsplot_dict[tornado_result.tornado_result]['type'],
+                    # for -L argument which is the first element of 'point' in the yaml file
+                    l_param = lambda tornado_result: tornado_ngsplot_dict[tornado_result.tornado_result]['point']
+
+            shell:
+                """
+                    mkdir -p {tornado_dir}
+                    mkdir -p {tornado_sorted_dataset_dir}
+                    mkdir -p {tornado_sorted_config_dir}
+                    {argos_R} {argos_ngsplot} -G {ref_genome} -R {params.r_param} -L {params.l_param} -C {input} -LOW 2 -GO max -O {wildcards.tornado_sorted_dataset_dir}/{wildcards.tornado_result}_sorted -SC global
+                   
+                """
+
+
+rule run_ngsplot_rmdup:
+            input:
+                # using config to eliminate the unmatch error between input and output
+                expand(config["tornado_rmdup_config_dir"] + "/{{tornado_result}}_config.txt")
+            output:
+                "{tornado_rmdup_dataset_dir}/{tornado_result}_rmdup.avgprof.pdf",
+                "{tornado_rmdup_dataset_dir}/{tornado_result}_rmdup.heatmap.pdf"
+
+            params:
+                    tornado_rmdup_dataset_dir = lambda wildcards: "{tornado_rmdup_dataset_dir}",
+                    tornado_result = lambda wildcards: "{tornado_result}",
+                    # for -R argument which is the 'type' in the yaml file
+                    r_param = lambda tornado_result: tornado_ngsplot_dict[tornado_result.tornado_result]['type'],
+                    # for -L argument which is the first element of 'point' in the yaml file
+                    l_param = lambda tornado_result: tornado_ngsplot_dict[tornado_result.tornado_result]['point']
+
+            shell:
+                """
+                    mkdir -p {tornado_dir}
+                    mkdir -p {tornado_rmdup_dataset_dir}
+                    mkdir -p {tornado_rmdup_config_dir}
+                    {argos_R} {argos_ngsplot} -G {ref_genome} -R {params.r_param} -L {params.l_param} -C {input} -LOW 2 -GO max -O {wildcards.tornado_rmdup_dataset_dir}/{wildcards.tornado_result}_rmdup -SC global
+                """
+
+

@@ -1,0 +1,279 @@
+configfile: 'config.yaml'
+
+import re
+from collections import defaultdict
+from metaparser.bclmetaparser import BclMetaParser
+from metaparser.dirbuilder import DirBuilder
+from metaparser.argosmetaparser import ArgosMetaParser
+from metaparser.metaconf import ArgosTools
+from metaparser.metaconf import *
+from metaparser.tornadostrategyparser import TornadoStrategyParser
+from metaparser.genomeannotationsparser import GenomeAnnotationsParser
+from metaparser.sampleparser import SampleParser
+from metaparser.chipseqdownsampleparser import ChipseqDownsampleParser
+from fileio.fileutil import FileUtil
+from tool.fastqc import Fastqc
+#from tool.permutationtool import PermutationTool
+from tool.bedtools_intersect_writer import IntersectWriter
+import yaml
+
+
+# Dataset name and ref genome are passed as parameters when snakemake is called
+dataset = config['dataset']
+ref_genome = config['ref_genome']
+
+# Setting up the default command line arguments for bedtools_intersect depending on 
+# the given ref_genome 
+enhancers = config['enhancers']
+gene_spans = config['gene_spans']
+tss_spans = config['tss_spans']
+blacklist = config['blacklist']
+
+# down_sample variables
+ds_method = config['downsample_method']
+print(f'downsample method ======= {ds_method}')
+chip_downsample_parser = ChipseqDownsampleParser(dataset)
+chipseq_downsample_meta = chip_downsample_parser.get_chipseq_downsample_meta()
+
+
+# Creating all the diretories for snakemake rules
+dirs = DirBuilder(dataset)
+dirs.build_bclfastq_dirs()
+
+dirs.build_chipseq_dirs(ref_genome)
+
+# Getting samples associated with specified dataset (all the samples from sample.yaml)
+sample_parser = SampleParser()
+sample_parser.get_sample_list(dataset)
+sample = sample_parser.sample_list
+
+dataset_dir = dirs.dataset_dir
+
+# STAR
+# The start point of the RNAseq pipeline, first step is to run STAR
+merged_fastq_dir = dirs.merged_fastq_dir[:-1]
+config['merged_fastq_dir'] = merged_fastq_dir
+
+
+project_path = dirs.project_path[:-1] # project root directory, within this dir, there are FASTQ, STAR, etc.
+fastq_dir = dirs.fastq_dir
+fastq_dataset_dir = dirs.fastq_dataset_dir[:-1] # specified dataset dir in FASTQ dir, sample to STAR, etc.
+config['fastq_dataset_dir'] = fastq_dataset_dir
+
+star_dir = dirs.star_dir
+config['star_dir'] = star_dir
+star_dataset_dir = dirs.star_dataset_dir[:-1]
+config['star_dataset_dir'] = star_dataset_dir
+sorted_bam_dir = dirs.sorted_bam_dir[:-1]
+config['sorted_bam_dir'] = sorted_bam_dir
+sorted_bam_dataset_dir = dirs.sorted_bam_dataset_dir[:-1]
+config['sorted_bam_dataset_dir'] = sorted_bam_dataset_dir
+starindex_ercc = dirs.starindex_ercc
+gtf = dirs.gtf
+
+
+# PICARD
+rmdup_bam_dir = dirs.rmdup_bam_dir[:-1]
+config['rmdup_bam_dir'] = rmdup_bam_dir
+rmdup_bam_dataset_dir = dirs.rmdup_bam_dataset_dir[:-1]
+config['rmdup_bam_dataset_dir'] = rmdup_bam_dataset_dir
+
+# HTSEQ-COUNT
+counts_rmdup_dir = dirs.counts_rmdup_dir
+counts_sorted_dir = dirs.counts_sorted_dir
+
+# IGVtools
+tdf_dataset_rmdup_dir = dirs.tdf_dataset_rmdup_dir
+tdf_dataset_sorted_dir = dirs.tdf_dataset_sorted_dir
+wig_dataset_rmdup_dir = dirs.wig_dataset_rmdup_dir
+wig_dataset_sorted_dir = dirs.wig_dataset_sorted_dir
+
+# MACS2
+sample_parser.get_sample_input_dict(dataset)
+sample_no_input = sample_parser.sample_no_input_list
+sample_dict = sample_parser.sample_input_dict
+
+macs2_dir = dirs.macs2_dir
+macs2_dataset_dir = dirs.macs2_dataset_dir[:-1]
+
+# bedtools_coverage
+bedtools_coverage_dir = dirs.bedtools_coverage_dir
+bedtools_coverage_dataset_rmdup_dir = dirs.bedtools_coverage_dataset_rmdup_dir
+
+bedtools_chrNameLength = dirs.bedtools_chrNameLength
+#print(bedtools_chrNameLength)
+bedtools_tss_1k_2kbuff_bed_ref = dirs.bedtools_tss_1k_2kbuff_bed_ref
+macs2_ref_genome = dirs.macs2_ref_genome
+
+config['bedtools_coverage_dataset_rmdup_dir'] = bedtools_coverage_dataset_rmdup_dir
+
+# bedtools_intersect
+bedtools_intersect_dir = dirs.bedtools_intersect_dir
+bedtools_intersect_input_dir = dirs.bedtools_intersect_input_dir
+bedtools_intersect_dataset_rmdup_dir = dirs.bedtools_intersect_dataset_rmdup_dir[:-1]
+
+
+# bamCoverage
+bigwig_dir = dirs.bigwig_dir
+bigwig_sorted_dataset_dir = dirs.bigwig_sorted_dataset_dir
+bigwig_rmdup_dataset_dir = dirs.bigwig_rmdup_dataset_dir
+
+config['bigwig_rmdup_dataset_dir'] = bigwig_rmdup_dataset_dir
+config['ref_genome'] = ref_genome
+config['ds_method'] = ds_method
+
+genome_annotations = GenomeAnnotationsParser(ref_genome)
+bigwig_bl = genome_annotations.get_blacklist('blacklist')
+
+# Argos tools
+argos = ArgosMetaParser(ArgosTools.ARGOS_CONFIG_PATH.value)
+argos_star = argos.set_tool(ArgosTools.STAR)
+argos_picard = argos.set_tool(ArgosTools.PICARD)
+argos_samtools = argos.set_tool(ArgosTools.SAMTOOLS)
+argos_igvtools = argos.set_tool(ArgosTools.IGVTOOLS)
+argos_htseq_count = argos.set_tool(ArgosTools.HTSEQ_COUNT)
+argos_macs2 = argos.set_tool(ArgosTools.MACS2)
+argos_bedtools = argos.set_tool(ArgosTools.BEDTOOLS)
+argos_bamCoverage = argos.set_tool(ArgosTools.BAMCOVERAGE)
+argos_multiqc = argos.set_tool_snakemake(ArgosTools.MULTIQC)
+
+ds_method_dict = {'a': 'ds_a', 'b': 'ds_b', 'r': 'ds_r'}
+ds_method_meta = chip_downsample_parser.get_meta_by_method(ds_method)
+print(f'ds_method_meta:========== {ds_method_meta}')
+down_sample_dict = defaultdict()
+down_sample_list = []
+ds_name_insert = defaultdict()
+temp = []
+
+for k,v in ds_method_meta.items():
+    down_sample_dict[k + '_' + v['name']] = k
+    down_sample_list.append(k + '_' + v['name'])
+    temp.append(v['name'])
+    ds_name_insert[k] = v['name']
+
+#print(f'down_sample_dict ==============: {down_sample_dict}')
+#print(f'down_sample_list ==============: {down_sample_list}')
+#print(f'temp ==============: {temp}')
+#print(f'ds_name_insert ==============: {ds_name_insert}')
+
+#print(f'rmdup_bam_dataset_dir : ===========> {rmdup_bam_dataset_dir}')
+
+rule all:
+                input:
+                        #expand("{rmdup_bam_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam", rmdup_bam_dataset_dir=rmdup_bam_dataset_dir, sample=sample, ref_genome=ref_genome, ds_method=ds_method),
+                        #expand("{rmdup_bam_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam.bai", rmdup_bam_dataset_dir=rmdup_bam_dataset_dir, sample=sample, ref_genome=ref_genome, ds_method=ds_method),
+                        expand("{bigwig_rmdup_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bw", bigwig_rmdup_dataset_dir=bigwig_rmdup_dataset_dir, sample=sample, ref_genome=ref_genome, ds_method=ds_method),
+                        #expand("{rmdup_bam_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam.bai.ok", rmdup_bam_dataset_dir=rmdup_bam_dataset_dir, sample=sample, ref_genome=ref_genome, ds_method=ds_method),
+                        expand("{bigwig_rmdup_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bw.ok", bigwig_rmdup_dataset_dir=bigwig_rmdup_dataset_dir, sample=sample, ds_method=ds_method, ref_genome=ref_genome),
+                        expand("{bigwig_rmdup_dataset_dir}/bigwig_ds_rmdup.ok", bigwig_rmdup_dataset_dir=bigwig_rmdup_dataset_dir)
+                    
+                
+rule down_sample_rmdup:
+                input:
+                    "{rmdup_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps_rmdup.bam"
+                output:
+                    "{rmdup_bam_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam"
+                #wildcard_constraints: temp='ds_(a|b|r)_[0-9]+.[0-9]M'
+        
+                params:
+                    f = lambda sample: ds_method_meta[sample.sample]['frac'],
+                    n = lambda sample: ds_method_meta[sample.sample]['name']
+                    
+                shell:
+                        """
+                            mkdir -p {rmdup_bam_dataset_dir}/downsample
+                            {argos_samtools} view -bs {params.f} {input} > {output} 
+                        """
+                
+                   
+rule samtools_indexing_rmdup_ds:
+                input:
+                    "{rmdup_bam_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam"
+                output:
+                    "{rmdup_bam_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam.bai"
+                #wildcard_constraints: temp='ds_(a|b|r)_[0-9]+.[0-9]M'
+                shell:
+                        """
+                            {argos_samtools} index {input}
+                        """ 
+
+
+rule bam_coverage_rmdup:
+            input:
+                R1 = expand(config['rmdup_bam_dataset_dir'] + "/{{sample}}_{{ds_method}}_{{ref_genome}}_sorted_readgps_rmdup.bam"),
+                R2 = expand(config['rmdup_bam_dataset_dir'] + "/{{sample}}_{{ds_method}}_{{ref_genome}}_sorted_readgps_rmdup.bam.bai")
+            output:
+                "{bigwig_rmdup_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bw"
+            shell:
+                """
+                    mkdir -p {project_path}/BigWig/
+                    mkdir -p {project_path}/BigWig/{dataset}_{ref_genome}/
+                    mkdir -p {project_path}/BigWig/{dataset}_{ref_genome}/sorted_rmdup/
+                    {argos_bamCoverage} -b {input.R1} -p 2 -bl {bigwig_bl} -of bigwig -o {output}
+                """
+
+
+rule rename:
+                input:
+                    "{bigwig_rmdup_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bw"
+                output:
+                    "{bigwig_rmdup_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bw.ok"
+                params:
+                    n = lambda sample: ds_method_meta[sample.sample]['name']
+                shell:
+                        """
+                            touch {rmdup_bam_dataset_dir}/{wildcards.sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam.bai.x
+                            mv {rmdup_bam_dataset_dir}/{wildcards.sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam {rmdup_bam_dataset_dir}/{wildcards.sample}_{params.n}_{ref_genome}_sorted_readgps_rmdup.bam
+                            mv {rmdup_bam_dataset_dir}/{wildcards.sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam.bai {rmdup_bam_dataset_dir}/{wildcards.sample}_{params.n}_{ref_genome}_sorted_readgps_rmdup.bam.bai
+                            mv {rmdup_bam_dataset_dir}/{wildcards.sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam.bai.x {rmdup_bam_dataset_dir}/{wildcards.sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam.bai.ok
+                            touch {input}.x
+                            mv {input} {bigwig_rmdup_dataset_dir}/{wildcards.sample}_{params.n}_{ref_genome}_sorted_readgps_rmdup.bw
+                            mv {input}.x {output}
+                        """
+
+rule bam_coverage_rmdup_ok:
+            input:
+                expand(config['bigwig_rmdup_dataset_dir'] + "/{sample}_" + config['ds_method'] + "_" + config['ref_genome'] + "_sorted_readgps_rmdup.bw.ok", sample=sample)
+            output:
+                "{bigwig_rmdup_dataset_dir}/bigwig_ds_rmdup.ok"
+            shell:
+                """
+                    touch {bigwig_rmdup_dataset_dir}/bigwig_ds_rmdup.ok
+                """
+
+
+
+'''
+############################ do a test on chipseq_231012 ##########################
+rule rename_bam:
+                input:
+                    R1 = "{rmdup_bam_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam",
+                    R2 = "{rmdup_bam_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam.bai"
+                output:
+                    "{rmdup_bam_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bam.bai.ok"
+                params:
+                    n = lambda sample: ds_method_meta[sample.sample]['name']
+                shell:
+                        """
+                            touch {input.R2}.x
+                            mv {input.R1} {rmdup_bam_dataset_dir}/{wildcards.sample}_{params.n}_{ref_genome}_sorted_readgps_rmdup.bam
+                            mv {input.R2} {rmdup_bam_dataset_dir}/{wildcards.sample}_{params.n}_{ref_genome}_sorted_readgps_rmdup.bam.bai
+                            mv {input.R2}.x {output}
+                        """
+
+rule rename_bw:
+                input:
+                    "{bigwig_rmdup_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bw"
+                output:
+                    "{bigwig_rmdup_dataset_dir}/{sample}_{ds_method}_{ref_genome}_sorted_readgps_rmdup.bw.ok"
+                params:
+                    n1 = lambda sample: ds_method_meta[sample.sample]['name']
+                shell:
+                        """
+                            touch {input}.x
+                            mv {input} {bigwig_rmdup_dataset_dir}/{wildcards.sample}_{params.n1}_{ref_genome}_sorted_readgps_rmdup.bw"
+                            mv {input}.x {input}.ok
+                        """
+
+
+'''

@@ -1,0 +1,14 @@
+# enhancer keys are 'GRCh38_bedtools_intersect'
+# gene_spans keys are 'protcoding_gene_spans', 'unique_protcoding_gene_tx_spans'
+# tss_spans keys are 'unique_protcoding_gene_tx_TSS_coords', 'unique_protcoding_tx_TSS+1k_2kbuffer_coords'
+
+enhancers:
+  ''
+gene_spans:
+  'protcoding_gene_spans'
+tss_spans:
+  'unique_protcoding_gene_tx_TSS_coords'
+blacklist:
+  'blacklist'
+
+

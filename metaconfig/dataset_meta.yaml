@@ -1,0 +1,7 @@
+RNAseq_1:
+  run_date: 2020-07-12
+  project: "project_A_path"
+
+ChIPseq_1:
+  run_date: 2020-07-22
+  project: "project_B_path"

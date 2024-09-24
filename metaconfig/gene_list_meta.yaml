@@ -1,0 +1,6 @@
+hg38:
+  proteinCoding: "hg38_gencode_v29_proteinCoding_gene_list_CH-20190820.txt"
+  MMLTargetGenes:
+
+mm10:
+  proteinCoding: "mm10_gencode_M24_proteinCoding_gene_list_CH-20200921.txt"

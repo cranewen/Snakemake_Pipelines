@@ -1,0 +1,300 @@
+R_255_235_235:
+  base:
+    "#ffebeb"
+  sub:
+    - "#ffbfbf"
+    - "#ffb0b0"
+    - "#ff9191"
+    - "#ff7575"
+    - "#ff5757"
+    - "#ff3d3d"
+    - "#ff1f1f"
+
+R_255_220_201:
+  base:
+    "#ffdcc9"
+  sub:
+    - "#ffcdb3"
+    - "#ffbe9c"
+    - "#ffb087"
+    - "#ff955e"
+    - "#ff7f3d"
+    - "#ff7026"
+    - "#ff5f0d"
+
+RY_255_240_209:
+  base:
+    "#fff0d1"
+  sub:
+    - "#ffe8b8"
+    - "#ffdf9c"
+    - "#ffd57d"
+    - "#ffcb5e"
+    - "#ffc447"
+    - "#ffbe33"
+    - "#ffb81f"
+
+Y_255_255_201:
+  base:
+    "#ffffc9"
+  sub:
+    - "#ffffb5"
+    - "#ffffa3"
+    - "#ffff87"
+    - "#ffff5e"
+    - "#ffff3d"
+    - "#ffff29"
+    - "#ffff0f"
+
+YG_247_255_207:
+  base:
+    "#f7ffcf"
+  sub:
+    - "#edff91"
+    - "#e8ff75"
+    - "#e4ff5e"
+    - "#e0ff47"
+    - "#ddff33"
+    - "#daff21"
+    - "#d5ff05"
+
+G_209_255_209:
+  base:
+    "#d1ffd1"
+  sub:
+    - "#b3ffb3"
+    - "#8fff8f"
+    - "#73ff73"
+    - "#47ff47"
+    - "#2eff2e"
+    - "#1cff1c"
+    - "#0fff0f"
+
+# green to teal
+GT_209_255_234:
+  base:
+    "#d1ffea"
+  sub:
+    - "#b0ffdb"
+    - "#8fffcc"
+    - "#73ffbf"
+    - "#52ffb0"
+    - "#30ffa1"
+    - "#1cff98"
+    - "#0dff91"
+
+T_207_255_253:
+  base:
+    "#cffffd"
+  sub:
+    - "#8cfffa"
+    - "#75fff9"
+    - "#5cfff8"
+    - "#3dfff7"
+    - "#17fff5"
+    - "#08fff4"
+    - "#00fff4"
+
+TB_207_236_255:
+  base:
+    "#cfecff"
+  sub:
+    - "#addfff"
+    - "#8cd2ff"
+    - "#70c7ff"
+    - "#4fbaff"
+    - "#38b1ff"
+    - "#0fa1ff"
+    - "#009bff"
+
+B_207_207_255:
+  base:
+    "#cfcfff"
+  sub:
+    - "#ababff"
+    - "#8f8fff"
+    - "#7373ff"
+    - "#3d3dff"
+    - "#2e2eff"
+    - "#1717ff"
+    - "#0000ff"
+
+R_FFCCCC:
+  base:
+    "#ffcccc"
+  sub:
+    - "#ff9999"
+    - "#ff7777"
+    - "#ff5555"
+    - "#ff3333"
+    - "#ff2222"
+    - "#ff1111"
+    - "#ff0000"
+
+O_FFE5CC:
+  base:
+    "#ffe5cc"
+  sub:
+    - "#ffcc99"
+    - "#ffb250"
+    - "#ffb266"
+    - "#ff9933"
+    - "#ff8000"
+    - "#ff8222"
+    - "#ff8333"
+
+Y_FFFFCC:
+  base:
+    "#ffffcc"
+  sub:
+    - "#ffff99"
+    - "#ffff88"
+    - "#ffff77"
+    - "#ffff33"
+    - "#ffff22"
+    - "#ffff00"
+    - "#cccc00"
+
+YG_E5FFCC:
+  base:
+    "#e5ffcc"
+  sub:
+    - "#ccff99"
+    - "#b2ff66"
+    - "#99ff33"
+    - "#99ff20"
+    - "#80ff00"
+    - "#80ff20"
+    - "#66cc00"
+
+G_CCFFCC:
+  base:
+    "#ccffcc"
+  sub:
+    - "#99ff99"
+    - "#99ff88"
+    - "#66ff66"
+    - "#66ff50"
+    - "#33ff33"
+    - "#33ff20"
+    - "#00ff00"
+
+GT_CCFFE5:
+  base:
+    "#ccffe5"
+  sub:
+    - "#99ffcc"
+    - "#99ffbb"
+    - "#66ffb2"
+    - "#66ffc2"
+    - "#33ff99"
+    - "#33fc90"
+    - "#00ff80"
+
+T_CCFFFF:
+  base:
+    "#ccffff"
+  sub:
+    - "#99ffff"
+    - "#77ffff"
+    - "#66ffff"
+    - "#55ffff"
+    - "#33ffff"
+    - "#22ffff"
+    - "#00ffff"
+
+TB_CCE5FF:
+  base:
+    "#cce5ff"
+  sub:
+    - "#99ccff"
+    - "#99bbff"
+    - "#66b2ff"
+    - "#3399ff"
+    - "#0080ff"
+    - "#0080f0"
+    - "#0066cc"
+
+B_CCCCFF:
+  base:
+    "#ccccff"
+  sub:
+    - "#9999ff"
+    - "#7777ff"
+    - "#6666ff"
+    - "#5555ff"
+    - "#3333ff"
+    - "#2222ff"
+    - "#0000ff"
+
+PU_E5CCFF:
+  base:
+    "#e5ccff"
+  sub:
+    - "#cc99ff"
+    - "#b266ff"
+    - "#9933ff"
+    - "#9900ff"
+    - "#7f00ff"
+    - "#6600cc"
+    - "#5500cc"
+
+MG_FFCCFF:
+  base:
+    "#FFCCFF"
+  sub:
+    - "#ff99ff"
+    - "#ff77ff"
+    - "#ff66ff"
+    - "#ff55ff"
+    - "#ff33ff"
+    - "#ff22ff"
+    - "#ff00ff"
+
+PK_FFCCE5:
+  base:
+    "#ffcce5"
+  sub:
+    - "#ff99cc"
+    - "#ff77cc"
+    - "#ff66b2"
+    - "#ff3399"
+    - "#ff3377"
+    - "#ff007f"
+    - "#cc0066"
+
+GREY_E0E0E0:
+  base:
+    "#e0e0e0"
+  sub:
+    - "#d0d0d0"
+    - "#c0c0c0"
+    - "#b0b0b0"
+    - "#a0a0a0"
+    - "#909090"
+    - "#808080"
+    - "#707070"
+
+TG_E8F8F5:
+  base:
+    "#e8f8f5"   
+  sub:
+    - "#d1f2eb"
+    - "#a3e4d7"
+    - "#76d7c4"
+    - "#48c9b0"
+    - "#1abc9c"
+    - "#17a589"
+    - "#148f77"
+
+BGREY_F4F6F6:
+  base:
+    "#f4f6f6"
+  sub:
+    - "#eaeded"
+    - "#d5dbdb"
+    - "#bfc9ca"
+    - "#aab7b8"
+    - "#95a5a6"
+    - "#839192"
+    - "#717d7e"

@@ -1,0 +1,516 @@
+configfile: 'config.yaml'
+
+from metaparser.bclmetaparser import BclMetaParser
+from metaparser.dirbuilder import DirBuilder
+from metaparser.argosmetaparser import ArgosMetaParser
+from metaparser.metaconf import ArgosTools
+from metaparser.metaconf import *
+from metaparser.tornadostrategyparser import TornadoStrategyParser
+from metaparser.genomeannotationsparser import GenomeAnnotationsParser
+from metaparser.sampleparser import SampleParser
+from fileio.fileutil import FileUtil
+from tool.fastqc import Fastqc
+#from tool.permutationtool import PermutationTool
+from tool.bedtools_intersect_writer import IntersectWriter
+import yaml
+
+
+# Dataset name and ref genome are passed as parameters when snakemake is called
+dataset = config['dataset']
+ref_genome = config['ref_genome']
+
+# Setting up the default command line arguments for bedtools_intersect depending on 
+# the given ref_genome 
+enhancers = config['enhancers']
+gene_spans = config['gene_spans']
+tss_spans = config['tss_spans']
+blacklist = config['blacklist']
+
+
+# Creating all the diretories for snakemake rules
+dirs = DirBuilder(dataset)
+dirs.build_bclfastq_dirs()
+
+dirs.build_chipseq_dirs(ref_genome)
+
+# Getting samples associated with specified dataset (all the samples from sample.yaml)
+sample_parser = SampleParser()
+sample_parser.get_sample_list(dataset)
+sample = sample_parser.sample_list
+
+dataset_dir = dirs.dataset_dir
+
+# STAR
+# The start point of the RNAseq pipeline, first step is to run STAR
+merged_fastq_dir = dirs.merged_fastq_dir[:-1]
+config['merged_fastq_dir'] = merged_fastq_dir
+
+
+project_path = dirs.project_path[:-1] # project root directory, within this dir, there are FASTQ, STAR, etc.
+fastq_dir = dirs.fastq_dir
+fastq_dataset_dir = dirs.fastq_dataset_dir[:-1] # specified dataset dir in FASTQ dir, sample to STAR, etc.
+config['fastq_dataset_dir'] = fastq_dataset_dir
+
+star_dir = dirs.star_dir
+config['star_dir'] = star_dir
+star_dataset_dir = dirs.star_dataset_dir[:-1]
+config['star_dataset_dir'] = star_dataset_dir
+sorted_bam_dir = dirs.sorted_bam_dir[:-1]
+config['sorted_bam_dir'] = sorted_bam_dir
+sorted_bam_dataset_dir = dirs.sorted_bam_dataset_dir[:-1]
+config['sorted_bam_dataset_dir'] = sorted_bam_dataset_dir
+starindex_ercc = dirs.starindex_ercc
+gtf = dirs.gtf
+
+
+# PICARD
+rmdup_bam_dir = dirs.rmdup_bam_dir[:-1]
+config['rmdup_bam_dir'] = rmdup_bam_dir
+rmdup_bam_dataset_dir = dirs.rmdup_bam_dataset_dir[:-1]
+config['rmdup_bam_dataset_dir'] = rmdup_bam_dataset_dir
+
+# HTSEQ-COUNT
+counts_rmdup_dir = dirs.counts_rmdup_dir
+counts_sorted_dir = dirs.counts_sorted_dir
+
+# IGVtools
+tdf_dataset_rmdup_dir = dirs.tdf_dataset_rmdup_dir
+tdf_dataset_sorted_dir = dirs.tdf_dataset_sorted_dir
+wig_dataset_rmdup_dir = dirs.wig_dataset_rmdup_dir
+wig_dataset_sorted_dir = dirs.wig_dataset_sorted_dir
+
+# MACS2
+sample_parser.get_sample_input_dict(dataset)
+sample_no_input = sample_parser.sample_no_input_list
+sample_dict = sample_parser.sample_input_dict
+
+macs2_dir = dirs.macs2_dir
+macs2_dataset_dir = dirs.macs2_dataset_dir[:-1]
+
+# bedtools_coverage
+bedtools_coverage_dir = dirs.bedtools_coverage_dir
+bedtools_coverage_dataset_rmdup_dir = dirs.bedtools_coverage_dataset_rmdup_dir
+
+bedtools_chrNameLength = dirs.bedtools_chrNameLength
+#print(bedtools_chrNameLength)
+bedtools_tss_1k_2kbuff_bed_ref = dirs.bedtools_tss_1k_2kbuff_bed_ref
+macs2_ref_genome = dirs.macs2_ref_genome
+
+config['bedtools_coverage_dataset_rmdup_dir'] = bedtools_coverage_dataset_rmdup_dir
+
+# bedtools_intersect
+bedtools_intersect_dir = dirs.bedtools_intersect_dir
+bedtools_intersect_input_dir = dirs.bedtools_intersect_input_dir
+bedtools_intersect_dataset_rmdup_dir = dirs.bedtools_intersect_dataset_rmdup_dir[:-1]
+
+
+# bamCoverage
+bigwig_dir = dirs.bigwig_dir
+bigwig_sorted_dataset_dir = dirs.bigwig_sorted_dataset_dir
+bigwig_rmdup_dataset_dir = dirs.bigwig_rmdup_dataset_dir
+
+# multiqc all
+multiqc_all_root = dirs.multiqc_all_root
+multiqc_all_dir = dirs.multiqc_all_dir
+
+# the strategy for deeptools, here we need it for the blacklist
+
+# config variables for bam_coverage_ok
+config['bigwig_rmdup_dataset_dir'] = bigwig_rmdup_dataset_dir
+config['bigwig_sorted_dataset_dir'] = bigwig_sorted_dataset_dir
+config['ref_genome'] = ref_genome
+
+genome_annotations = GenomeAnnotationsParser(ref_genome)
+bigwig_bl = genome_annotations.get_blacklist('blacklist')
+
+
+# Setting Shell script parameters wildcards
+# STAR wildcards
+alignMatesGapMax_param = 2000
+alignIntronMax_param = 1
+seedSearchStartLmax_param = 30
+# run_igvtools wildcards
+z_param = 7
+e_param = 200
+# MACS2
+f_param = "BAMPE"
+q_param = 0.01
+slocal_param = 1500
+
+# Argos tools
+argos = ArgosMetaParser(ArgosTools.ARGOS_CONFIG_PATH.value)
+argos_star = argos.set_tool(ArgosTools.STAR)
+argos_picard = argos.set_tool(ArgosTools.PICARD)
+argos_samtools = argos.set_tool(ArgosTools.SAMTOOLS)
+argos_igvtools = argos.set_tool(ArgosTools.IGVTOOLS)
+argos_htseq_count = argos.set_tool(ArgosTools.HTSEQ_COUNT)
+argos_macs2 = argos.set_tool(ArgosTools.MACS2)
+argos_bedtools = argos.set_tool(ArgosTools.BEDTOOLS)
+argos_bamCoverage = argos.set_tool(ArgosTools.BAMCOVERAGE)
+argos_multiqc = argos.set_tool_snakemake(ArgosTools.MULTIQC)
+
+# setting up variables for intersect tool
+biw = IntersectWriter(dataset, ref_genome)
+biw.write_intersect_sh(bedtools_intersect_dataset_rmdup_dir, argos_bedtools, sample_no_input, enhancers, gene_spans, tss_spans, blacklist, bedtools_chrNameLength, bedtools_intersect_input_dir, bedtools_intersect_dataset_rmdup_dir + '/nofloor')
+
+
+
+
+rule all:
+                input:
+                        expand("{sorted_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps.bam", sorted_bam_dataset_dir=sorted_bam_dataset_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{sorted_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps.bam.bai", sorted_bam_dataset_dir=sorted_bam_dataset_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{rmdup_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps_rmdup.bam", rmdup_bam_dataset_dir=rmdup_bam_dataset_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{rmdup_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps_rmdup.bam.bai", rmdup_bam_dataset_dir=rmdup_bam_dataset_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{tdf_dataset_rmdup_dir}/{sample}_{ref_genome}_rmdup.tdf", tdf_dataset_rmdup_dir=tdf_dataset_rmdup_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{tdf_dataset_sorted_dir}/{sample}_{ref_genome}_sorted.tdf", tdf_dataset_sorted_dir=tdf_dataset_sorted_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{wig_dataset_rmdup_dir}/{sample}_{ref_genome}_rmdup.wig", wig_dataset_rmdup_dir=wig_dataset_rmdup_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{wig_dataset_sorted_dir}/{sample}_{ref_genome}_sorted.wig", wig_dataset_sorted_dir=wig_dataset_sorted_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{macs2_dataset_dir}/output_rmdup/nofloor/{sample_no_input}_{ref_genome}_peaks.narrowPeak", macs2_dataset_dir=macs2_dataset_dir, sample_no_input=sample_no_input, ref_genome=ref_genome),
+                        expand("{macs2_dataset_dir}/output_rmdup/nofloor/{sample_no_input}_{ref_genome}_bedsorted_peaks.narrowPeak", macs2_dataset_dir=macs2_dataset_dir, sample_no_input=sample_no_input, ref_genome=ref_genome),
+                        expand("{bedtools_coverage_dataset_rmdup_dir}/{sample}_{ref_genome}_rmdup_tss_bedtools_coverage.txt", bedtools_coverage_dataset_rmdup_dir=bedtools_coverage_dataset_rmdup_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{bedtools_coverage_dataset_rmdup_dir}/tss_all_samples.csv", bedtools_coverage_dataset_rmdup_dir=bedtools_coverage_dataset_rmdup_dir),
+                        expand("{bigwig_sorted_dataset_dir}/{sample}_{ref_genome}_sorted_readgps.bw", bigwig_sorted_dataset_dir=bigwig_sorted_dataset_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{bigwig_rmdup_dataset_dir}/{sample}_{ref_genome}_sorted_readgps_rmdup.bw", bigwig_rmdup_dataset_dir=bigwig_rmdup_dataset_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{bigwig_sorted_dataset_dir}/bigwig_sorted.ok", bigwig_sorted_dataset_dir=bigwig_sorted_dataset_dir),
+                        expand("{bigwig_rmdup_dataset_dir}/bigwig_rmdup.ok", bigwig_rmdup_dataset_dir=bigwig_rmdup_dataset_dir),
+                        expand("{bedtools_intersect_dataset_rmdup_dir}/bedtool_intersect.ok", bedtools_intersect_dataset_rmdup_dir=bedtools_intersect_dataset_rmdup_dir),
+                        expand("{rmdup_bam_dataset_dir}/samtools_stats/{sample}_{ref_genome}_sorted_readgps_rmdup_samtools_stats.txt", rmdup_bam_dataset_dir=rmdup_bam_dataset_dir, sample=sample, ref_genome=ref_genome), 
+                        expand("{rmdup_bam_dataset_dir}/samtools_flagstat/{sample}_{ref_genome}_sorted_readgps_rmdup_samtools_flagstat.txt", rmdup_bam_dataset_dir=rmdup_bam_dataset_dir, sample=sample, ref_genome=ref_genome),
+                        expand("{multiqc_all_dir}/{dataset}_multiqc.html", multiqc_all_dir=multiqc_all_dir, dataset=dataset)               
+
+                
+rule movefastqs:
+                input:
+                        R1 = expand("{merged_fastq_dir}/{sample}_R1_merged.fastq.gz", sample=sample, merged_fastq_dir=merged_fastq_dir),
+                        R2 = expand("{merged_fastq_dir}/{sample}_R2_merged.fastq.gz", sample=sample, merged_fastq_dir=merged_fastq_dir)
+                output:
+                        R1 = expand("{fastq_dataset_dir}/{sample}_R1_merged.fastq.gz", sample=sample, fastq_dataset_dir=fastq_dataset_dir),
+                        R2 = expand("{fastq_dataset_dir}/{sample}_R2_merged.fastq.gz", sample=sample, fastq_dataset_dir=fastq_dataset_dir)
+
+                shell:
+                        """
+                                mkdir -p {fastq_dataset_dir}
+                                cp {input.R1} {fastq_dataset_dir}
+                                cp {input.R2} {fastq_dataset_dir}
+                        """
+
+rule runstar:
+                input:
+                        R1 = expand(config['fastq_dataset_dir'] + "/{{sample}}_R1_merged.fastq.gz"),
+                        R2 = expand(config['fastq_dataset_dir'] + "/{{sample}}_R2_merged.fastq.gz")
+                output:
+                        "{sorted_bam_dataset_dir}/{sample}_{ref_genome}_Aligned.sortedByCoord.out.bam"
+                threads: 4
+                resources:
+                        nodes = 10
+                params:
+                        sample = lambda wildcards: "{sample}"
+                shell:
+                        """
+                                mkdir -p {star_dir}
+                                mkdir -p {star_dataset_dir}/
+                                {argos_star} --genomeDir {starindex_ercc} --sjdbGTFfile {gtf} --readFilesIn {input.R1} {input.R2} --outFileNamePrefix {star_dataset_dir}/{wildcards.sample}_{ref_genome}_ --twopassMode Basic --outReadsUnmapped None --runThreadN 4 --outSAMstrandField intronMotif --outSAMunmapped Within --alignIntronMax {alignIntronMax_param} --alignEndsType EndToEnd --alignMatesGapMax {alignMatesGapMax_param} --outSAMtype BAM SortedByCoordinate --readFilesCommand zcat
+                                mkdir -p {sorted_bam_dir}/
+                                mkdir -p {sorted_bam_dataset_dir}/
+                                mv {star_dataset_dir}/{wildcards.sample}_{ref_genome}_Aligned.sortedByCoord.out.bam {sorted_bam_dataset_dir}
+                                rm -rf {star_dataset_dir}/{wildcards.sample}_{ref_genome}__STARgenome/
+                                rm -rf {star_dataset_dir}/{wildcards.sample}_{ref_genome}__STARpass1/
+                        """
+
+
+rule runpicard_add_replace:
+                input:
+                    "{sorted_bam_dataset_dir}/{sample}_{ref_genome}_Aligned.sortedByCoord.out.bam"
+                        
+                output:
+                    "{sorted_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps.bam"
+                shell:
+                        """
+                            mkdir -p {project_path}/tmp/
+                            {argos_picard} AddOrReplaceReadGroups I={input} O={output} RGLB=lib1 RGPL=illumina RGPU=unit1 RGSM=13 TMP_DIR={project_path}/tmp
+                            
+                        """
+
+rule samtools_indexing:
+                input:
+                    "{sorted_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps.bam"
+                output:
+                    "{sorted_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps.bam.bai"
+                shell:
+                        """
+                            {argos_samtools} index {input}
+                        """ 
+
+# renamed from runpicard_complexity, now both sorted and rmdup version of bam_qc have picard complexity included
+# running qc steps, later using multiqc for merging all the results
+rule run_sorted_bam_qc:
+                input:
+                    "{sorted_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps.bam"
+                output:
+                    R1 = "{sorted_bam_dataset_dir}/samtools_stats/{sample}_{ref_genome}_sorted_readgps_samtools_stats.txt",
+                    R2 = "{sorted_bam_dataset_dir}/samtools_flagstat/{sample}_{ref_genome}_sorted_readgps_samtools_flagstat.txt",
+                    R3 = "{sorted_bam_dataset_dir}/stats/{sample}_{ref_genome}_sorted_readgps_lib_complexity.txt"
+                shell:
+                        """
+                            mkdir -p {sorted_bam_dataset_dir}/samtools_stats/
+                            mkdir -p {sorted_bam_dataset_dir}/samtools_flagstat/
+                            {argos_samtools} stats {input} > {output.R1}
+                            {argos_samtools} flagstat {input} > {output.R2}
+                            {argos_picard} EstimateLibraryComplexity I={input} O={output.R3} TMP_DIR={project_path}/tmp
+                        """
+
+                    
+rule run_rmdup_bam_qc:
+                input:
+                    "{rmdup_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps_rmdup.bam"
+                output:
+                    R1 = "{rmdup_bam_dataset_dir}/samtools_stats/{sample}_{ref_genome}_sorted_readgps_rmdup_samtools_stats.txt",
+                    R2 = "{rmdup_bam_dataset_dir}/samtools_flagstat/{sample}_{ref_genome}_sorted_readgps_rmdup_samtools_flagstat.txt",
+                    R3 = "{rmdup_bam_dataset_dir}/stats/{sample}_{ref_genome}_sorted_readgps_rmdup_lib_complexity.txt"
+                shell:
+                        """
+                            mkdir -p {rmdup_bam_dataset_dir}/stats/
+                            mkdir -p {rmdup_bam_dataset_dir}/samtools_stats/
+                            mkdir -p {rmdup_bam_dataset_dir}/samtools_flagstat/
+                            {argos_samtools} stats {input} > {output.R1}
+                            {argos_samtools} flagstat {input} > {output.R2}
+                            {argos_picard} EstimateLibraryComplexity I={input} O={output.R3} TMP_DIR={project_path}/tmp
+                        """ 
+
+
+    
+
+rule runpicard_rmdup:
+                input:
+                    expand(config['sorted_bam_dataset_dir'] + "/{{sample}}_{{ref_genome}}_sorted_readgps.bam")
+                output:
+                    "{rmdup_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps_rmdup.bam"
+                shell:
+                    """
+                        mkdir -p {rmdup_bam_dir}/
+                        mkdir -p {rmdup_bam_dataset_dir}/
+                        mkdir -p {rmdup_bam_dataset_dir}/stats
+                        {argos_picard} MarkDuplicates INPUT={input} OUTPUT={output} METRICS_FILE={wildcards.rmdup_bam_dataset_dir}/stats/{wildcards.sample}_{wildcards.ref_genome}_sorted_readgps_rmdup_info.txt REMOVE_DUPLICATES=true TMP_DIR={project_path}/tmp/
+                        touch {wildcards.rmdup_bam_dataset_dir}/{wildcards.sample}_{wildcards.ref_genome}_sorted_readgps_rmdup.ok
+
+                    """
+
+rule samtools_indexing_rmdup:
+                input:
+                    "{rmdup_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps_rmdup.bam"
+                output:
+                    "{rmdup_bam_dataset_dir}/{sample}_{ref_genome}_sorted_readgps_rmdup.bam.bai"
+                shell:
+                        """
+                            {argos_samtools} index {input}
+                        """ 
+
+
+rule run_igvtools_rmdup_tdf:
+                input:
+                    expand(config['rmdup_bam_dataset_dir'] + "/{{sample}}_{{ref_genome}}_sorted_readgps_rmdup.bam")
+                output:
+                    "{tdf_dataset_rmdup_dir}/{sample}_{ref_genome}_rmdup.tdf",
+                shell:
+                        """
+                            mkdir -p {project_path}/TDF/
+                            mkdir -p {project_path}/TDF/{dataset}_{ref_genome}/
+                            mkdir -p {project_path}/TDF/{dataset}_{ref_genome}/sorted_rmdup/
+                            
+                            {argos_igvtools} -Djava.util.prefs.userRoot=/mnt/storage/dept/pedonc/.java/uprefs count -z {z_param} -e {e_param} {input} {output} {ref_genome} 
+
+                        """
+
+rule run_igvtools_tdf:
+                input:
+                    expand(config['sorted_bam_dataset_dir'] + "/{{sample}}_{{ref_genome}}_sorted_readgps.bam")
+                output:
+                    "{tdf_dataset_sorted_dir}/{sample}_{ref_genome}_sorted.tdf",
+                shell:
+                        """
+                            mkdir -p {project_path}/TDF/
+                            mkdir -p {project_path}/TDF/{dataset}_{ref_genome}/
+                            mkdir -p {project_path}/TDF/{dataset}_{ref_genome}/sorted/
+                            
+                            {argos_igvtools} -Djava.util.prefs.userRoot=/mnt/storage/dept/pedonc/.java/uprefs count -z {z_param} -e {e_param} {input} {output} {ref_genome} 
+
+                        """
+
+
+
+rule run_igvtools_rmdup_wig:
+                input:
+                    expand(config['rmdup_bam_dataset_dir'] + "/{{sample}}_{{ref_genome}}_sorted_readgps_rmdup.bam")
+                output:
+                    "{wig_dataset_rmdup_dir}/{sample}_{ref_genome}_rmdup.wig"
+                shell:
+                        """
+                            mkdir -p {project_path}/WIG/
+                            mkdir -p {project_path}/WIG/{dataset}_{ref_genome}/
+                            mkdir -p {project_path}/WIG/{dataset}_{ref_genome}/sorted_rmdup/
+                            
+                            {argos_igvtools} -Djava.util.prefs.userRoot=/mnt/storage/dept/pedonc/.java/uprefs count -z {z_param} -e {e_param} {input} {output} {ref_genome} 
+
+                        """
+
+rule run_igvtools_wig:
+                input:
+                    expand(config['sorted_bam_dataset_dir'] + "/{{sample}}_{{ref_genome}}_sorted_readgps.bam")
+                output:
+                    "{wig_dataset_sorted_dir}/{sample}_{ref_genome}_sorted.wig"
+                shell:
+                        """
+                            mkdir -p {project_path}/WIG/
+                            mkdir -p {project_path}/WIG/{dataset}_{ref_genome}/
+                            mkdir -p {project_path}/WIG/{dataset}_{ref_genome}/sorted/
+                            
+                            {argos_igvtools} -Djava.util.prefs.userRoot=/mnt/storage/dept/pedonc/.java/uprefs count -z {z_param} -e {e_param} {input} {output} {ref_genome} 
+
+                        """
+
+rule macs2:
+            input:
+                expand(config['rmdup_bam_dataset_dir'] + "/{{sample_no_input}}_{{ref_genome}}_sorted_readgps_rmdup.bam")
+            output:
+                "{macs2_dataset_dir}/output_rmdup/nofloor/{sample_no_input}_{ref_genome}_peaks.narrowPeak"
+            params:
+                sample_list = lambda sample: sample_dict[sample.sample_no_input]
+
+            shell:
+                """
+                    mkdir -p {macs2_dir}
+                    mkdir -p {macs2_dataset_dir}
+                    mkdir -p {macs2_dataset_dir}/output_rmdup/
+                    mkdir -p {macs2_dataset_dir}/output_rmdup/nofloor/
+                    mkdir -p {project_path}/tmp/
+                    while [ ! -f {rmdup_bam_dataset_dir}/{params.sample_list}_{ref_genome}_sorted_readgps_rmdup.ok ]
+                    do 
+                        sleep 30
+                    done
+                    {argos_macs2} callpeak -t {input} -c {rmdup_bam_dataset_dir}/{params.sample_list}_{ref_genome}_sorted_readgps_rmdup.bam -n {wildcards.sample_no_input}_{ref_genome} -g {macs2_ref_genome} -f {f_param} -q {q_param} --slocal {slocal_param} --outdir {macs2_dataset_dir}/output_rmdup/nofloor --tempdir {project_path}/tmp
+
+                """
+
+rule bedtools:
+            input:
+                rules.macs2.output
+            output:
+                "{macs2_dataset_dir}/output_rmdup/nofloor/{sample_no_input}_{ref_genome}_bedsorted_peaks.narrowPeak"
+            shell:
+                """
+                    {argos_bedtools} sort -g {starindex_ercc}/chrName.txt -i {input} > {output}
+
+                """
+                
+
+rule bedtools_coverage:
+            input:
+                expand(config['rmdup_bam_dataset_dir'] + "/{{sample}}_{{ref_genome}}_sorted_readgps_rmdup.bam")
+            output:
+                "{bedtools_coverage_dataset_rmdup_dir}/{sample}_{ref_genome}_rmdup_tss_bedtools_coverage.txt"
+            shell:
+                """
+                    mkdir -p {project_path}/bedtools_coverage/
+                    mkdir -p {project_path}/bedtools_coverage/{dataset}_{ref_genome}/
+                    mkdir -p {project_path}/bedtools_coverage/{dataset}_{ref_genome}/sorted_rmdup/
+                    {argos_bedtools} coverage -counts -sorted -g {bedtools_chrNameLength} -a {bedtools_tss_1k_2kbuff_bed_ref} -b {input} > {output}
+                """
+
+rule bedtools_coverage_merge:
+            input:
+                expand(config['bedtools_coverage_dataset_rmdup_dir'] + "/{sample}_{ref_genome}_rmdup_tss_bedtools_coverage.txt", sample=sample, ref_genome=ref_genome)
+            output:
+                "{bedtools_coverage_dataset_rmdup_dir}/tss_all_samples.csv"
+            shell:
+                """
+                    /mnt/storage/dept/pedonc/src/miniconda2/envs/snakemake/bin/python tool/bedtools_coverage_merge.py -f {bedtools_coverage_dataset_rmdup_dir}                        
+
+                """
+                
+
+
+rule bam_coverage_sorted:
+            input:
+                R1 = expand(config['sorted_bam_dataset_dir'] + "/{{sample}}_{{ref_genome}}_sorted_readgps.bam"),
+                R2 = expand(config['sorted_bam_dataset_dir'] + "/{{sample}}_{{ref_genome}}_sorted_readgps.bam.bai")
+            output:
+                "{bigwig_sorted_dataset_dir}/{sample}_{ref_genome}_sorted_readgps.bw"
+
+            shell:
+                """
+                    mkdir -p {project_path}/BigWig/
+                    mkdir -p {project_path}/BigWig/{dataset}_{ref_genome}/
+                    mkdir -p {project_path}/BigWig/{dataset}_{ref_genome}/sorted/
+                    {argos_bamCoverage} -b {input.R1} -p 2 -bl {bigwig_bl} -of bigwig -o {output}
+                    
+                """
+
+
+rule bam_coverage_rmdup:
+            input:
+                R1 = expand(config['rmdup_bam_dataset_dir'] + "/{{sample}}_{{ref_genome}}_sorted_readgps_rmdup.bam"),
+                R2 = expand(config['rmdup_bam_dataset_dir'] + "/{{sample}}_{{ref_genome}}_sorted_readgps_rmdup.bam.bai")
+            output:
+                "{bigwig_rmdup_dataset_dir}/{sample}_{ref_genome}_sorted_readgps_rmdup.bw"
+            shell:
+                """
+                    mkdir -p {project_path}/BigWig/
+                    mkdir -p {project_path}/BigWig/{dataset}_{ref_genome}/
+                    mkdir -p {project_path}/BigWig/{dataset}_{ref_genome}/sorted_rmdup/
+                    {argos_bamCoverage} -b {input.R1} -p 2 -bl {bigwig_bl} -of bigwig -o {output}
+                """
+                    
+rule bam_coverage_sorted_ok:
+            input:
+                expand(config['bigwig_sorted_dataset_dir'] + "/{sample}_" + config['ref_genome'] + "_sorted_readgps.bw", sample=sample)
+            output:
+                "{bigwig_sorted_dataset_dir}/bigwig_sorted.ok"
+            shell:
+                """
+                    touch {bigwig_sorted_dataset_dir}/bigwig_sorted.ok
+                """
+
+                
+rule bam_coverage_rmdup_ok:
+            input:
+                expand(config['bigwig_rmdup_dataset_dir'] + "/{sample}_" + config['ref_genome'] + "_sorted_readgps_rmdup.bw", sample=sample)
+            output:
+                "{bigwig_rmdup_dataset_dir}/bigwig_rmdup.ok"
+            shell:
+                """
+                    touch {bigwig_rmdup_dataset_dir}/bigwig_rmdup.ok
+                """
+          
+rule bedtools_intersect_rmdup:
+            input:
+                expand("{macs2_dataset_dir}/output_rmdup/nofloor/{sample_no_input}_{ref_genome}_peaks.narrowPeak", macs2_dataset_dir=macs2_dataset_dir, sample_no_input=sample_no_input, ref_genome=ref_genome)
+            output:
+                expand("{bedtools_intersect_dataset_rmdup_dir}/bedtool_intersect.ok", bedtools_intersect_dataset_rmdup_dir=bedtools_intersect_dataset_rmdup_dir)
+            shell:
+                """
+                    mkdir -p {bedtools_intersect_dataset_rmdup_dir}/nofloor
+                    bash {bedtools_intersect_dataset_rmdup_dir}/bedtool_intersect.sh  
+                    touch {bedtools_intersect_dataset_rmdup_dir}/bedtool_intersect.ok
+                """
+
+
+rule multiqc_all:
+            input:
+                expand("{rmdup_bam_dataset_dir}/samtools_stats/{sample}_{ref_genome}_sorted_readgps_rmdup_samtools_stats.txt", rmdup_bam_dataset_dir=rmdup_bam_dataset_dir, sample=sample, ref_genome=ref_genome), 
+                expand("{rmdup_bam_dataset_dir}/samtools_flagstat/{sample}_{ref_genome}_sorted_readgps_rmdup_samtools_flagstat.txt", rmdup_bam_dataset_dir=rmdup_bam_dataset_dir, sample=sample, ref_genome=ref_genome), 
+                expand("{rmdup_bam_dataset_dir}/stats/{sample}_{ref_genome}_sorted_readgps_rmdup_lib_complexity.txt", rmdup_bam_dataset_dir=rmdup_bam_dataset_dir, sample=sample, ref_genome=ref_genome),
+                expand("{sorted_bam_dataset_dir}/samtools_stats/{sample}_{ref_genome}_sorted_readgps_samtools_stats.txt", sorted_bam_dataset_dir=sorted_bam_dataset_dir, sample=sample, ref_genome=ref_genome),
+                expand("{sorted_bam_dataset_dir}/samtools_flagstat/{sample}_{ref_genome}_sorted_readgps_samtools_flagstat.txt", sorted_bam_dataset_dir=sorted_bam_dataset_dir, sample=sample, ref_genome=ref_genome),
+                expand("{sorted_bam_dataset_dir}/stats/{sample}_{ref_genome}_sorted_readgps_lib_complexity.txt", sorted_bam_dataset_dir=sorted_bam_dataset_dir, sample=sample, ref_genome=ref_genome)
+
+            output:
+                "{multiqc_all_dir}/{dataset}_multiqc.html"                
+            shell:
+                """
+                    mkdir -p {multiqc_all_root}
+                    mkdir -p {multiqc_all_dir}
+                    {argos_multiqc} {project_path}/*/{dataset}_{ref_genome} -n {dataset}_multiqc -o {multiqc_all_dir}
+                """
+
+

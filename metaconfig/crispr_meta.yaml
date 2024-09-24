@@ -1,0 +1,92 @@
+# 2022-09-16
+Experiment1:
+  Sample_S2:
+    label: "MCF7_DMSO_31d_R2"
+    cellline: "MCF7"
+    treatment: "DMSO"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S3:
+    label: "MCF7_DMSO_31d_R3"
+    cellline: "MCF7"
+    treatment: "DMSO"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S4:
+    label: "MCF7_VTP_31d_R1"
+    cellline: "MCF7"
+    treatment: "VTP"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S5:
+    label: "MCF7_VTP_31d_R2"
+    cellline: "MCF7"
+    treatment: "VTP"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S6:
+    label: "MCF7_VTP_31d_R3"
+    cellline: "MCF7"
+    treatment: "VTP"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S7:
+    label: "MCF7_EPZ_31d_R1"
+    cellline: "MCF7"
+    treatment: "EPZ"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S8:
+    label: "MCF7_EPZ_31d_R2"
+    cellline: "MCF7"
+    treatment: "EPZ"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S9:
+    label: "MCF7_EPZ_31d_R3"
+    cellline: "MCF7"
+    treatment: "EPZ"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S10:
+    label: "MCF7_combo_31d_R1"
+    cellline: "MCF7"
+    treatment: "VTP-EPZ"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S11:
+    label: "MCF7_combo_31d_R2"
+    cellline: "MCF7"
+    treatment: "VTP-EPZ"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S12:
+    label: "MCF7_combo_31d_R3"
+    cellline: "MCF7"
+    treatment: "VTP-EPZ"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S13:
+    label: "MCF7_PF9363_31d_R1"
+    cellline: "MCF7"
+    treatment: "PF9363"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S14:
+    label: "MCF7_PF9363_31d_R2"
+    cellline: "MCF7"
+    treatment: "PF9363"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S15:
+    label: "MCF7_PF9363_31d_R3"
+    cellline: "MCF7"
+    treatment: "PF9363"
+    timepoint: "31d"
+    path: "fastq_path"
+  Sample_S16:
+    label: "MCF7_0d_R1"
+    cellline: "MCF7"
+    treatment: "none"
+    timepoint: "0d"
+    path: "fastq_path"

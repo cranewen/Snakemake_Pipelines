@@ -1,0 +1,7 @@
+Experiment1:
+  Sample_S1:
+    label: "label for current sample"
+    shortname: "short name"
+  Sample_S2:
+    label: "label for current sample"
+    shortname: "short name"

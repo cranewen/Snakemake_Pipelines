@@ -1,0 +1,162 @@
+from metaparser.bclmetaparser import BclMetaParser
+from metaparser.dirbuilder import DirBuilder
+from metaparser.argosmetaparser import ArgosMetaParser
+from metaparser.metaconf import ArgosTools
+from metaparser.sampleparser import SampleParser
+from metaparser.deseq2strategyparser import DESeq2StrategyParser
+from tool.fastqc import Fastqc
+from tool.fileconvertor import FileConvertor
+import yaml
+
+# Dataset name and ref genome are passed as parameters when snakemake is called
+dataset = config['dataset']
+ref_genome = config['ref_genome']
+
+# Creating all the diretories for snakemake rules
+dirs = DirBuilder(dataset)
+dirs.build_bclfastq_dirs()
+
+dirs.build_deseq2_dirs(ref_genome)
+
+'''
+# Find all samples associated with specified dataset
+sample_parser = SampleParser()
+sample_parser.get_sample_list(dataset)
+sample = sample_parser.sample_list
+'''
+
+
+deseq2 = DESeq2StrategyParser(dataset)
+deseq2.get_deseq2_strategy()
+# a dictionary of the strategy for each result
+deseq2_strategy = deseq2.deseq2_strategy
+#print(deseq2_strategy)
+# a list of result file names, they are csv
+deseq2_result = deseq2.deseq2_result
+#print(deseq2_result)
+
+# deseq2 R file location
+deseq2_R = dirs.deseq2_R
+
+dataset_dir = dirs.dataset_dir
+
+# HTSEQ-COUNT
+counts_rmdup_dir = dirs.counts_rmdup_dir
+counts_sorted_dir = dirs.counts_sorted_dir
+#print(counts_sorted_dir)
+
+# DESeq2 input files
+deseq2_input_sorted = ['consolidated_counts_sorted', 'col_data_sorted']
+deseq2_input_rmdup = ['consolidated_counts_sorted_rmdup', 'col_data_sorted_rmdup']
+
+deseq2_dir = dirs.deseq2_dir
+deseq2_dataset_sorted = dirs.deseq2_dataset_sorted[:-1] 
+deseq2_dataset_sorted_rmdup = dirs.deseq2_dataset_sorted_rmdup[:-1] 
+'''
+deseq2_rlog_expression = deseq2_dataset + 'rlog_expression/'
+deseq2_diffexp_genes = deseq2_dataset + 'diffexp_genes/' 
+pca_dir = deseq2_dataset + 'PCA/'
+heatmaps_dir = deseq2_dataset + 'heatmaps/'
+'''
+
+config["deseq2_dataset_sorted"] = deseq2_dataset_sorted
+config["deseq2_dataset_sorted_rmdup"] = deseq2_dataset_sorted_rmdup
+# create "consolidated and coldata files"
+f = FileConvertor(dataset)
+f.concat_count_files(counts_sorted_dir, ref_genome)
+f.create_col_data_file(counts_sorted_dir)
+f.concat_count_files(counts_rmdup_dir, ref_genome)
+f.create_col_data_file(counts_rmdup_dir)
+
+#print(deseq2_dataset_sorted)
+
+# Setting up all the tools
+argos = ArgosMetaParser(ArgosTools.ARGOS_CONFIG_PATH.value)
+argos_R = argos.set_tool_snakemake(ArgosTools.RSCRIPT)
+
+rule all:
+                input:
+                    expand("{deseq2_dataset_sorted}/diffexp_genes/{deseq2_result}_diffexp_sorted.csv", deseq2_dataset_sorted=deseq2_dataset_sorted, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted}/rlog_expression/{deseq2_result}_rlog_sorted.csv", deseq2_dataset_sorted=deseq2_dataset_sorted, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted}/PCA/{deseq2_result}_pca_sorted.png", deseq2_dataset_sorted=deseq2_dataset_sorted, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted}/heatmaps/{deseq2_result}_heatmap_sorted.png", deseq2_dataset_sorted=deseq2_dataset_sorted, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted}/volcano_plot/{deseq2_result}_volcano_sorted.png", deseq2_dataset_sorted=deseq2_dataset_sorted, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted_rmdup}/rlog_expression/{deseq2_result}_rlog_sorted_rmdup.csv", deseq2_dataset_sorted_rmdup=deseq2_dataset_sorted_rmdup, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted_rmdup}/rlog_expression_zscore/{deseq2_result}_rlog_sorted_rmdup_zscore.csv", deseq2_dataset_sorted_rmdup=deseq2_dataset_sorted_rmdup, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted_rmdup}/PCA/{deseq2_result}_pca_sorted_rmdup.png", deseq2_dataset_sorted_rmdup=deseq2_dataset_sorted_rmdup, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted_rmdup}/heatmaps/{deseq2_result}_heatmap_sorted_rmdup.png", deseq2_dataset_sorted_rmdup=deseq2_dataset_sorted_rmdup, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted_rmdup}/volcano_plot/{deseq2_result}_volcano_sorted_rmdup.png", deseq2_dataset_sorted_rmdup=deseq2_dataset_sorted_rmdup, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted}/rlog_expression_zscore/{deseq2_result}_rlog_sorted_zscore.csv", deseq2_dataset_sorted=deseq2_dataset_sorted, deseq2_result=deseq2_result),
+                    expand("{deseq2_dataset_sorted_rmdup}/diffexp_genes/{deseq2_result}_diffexp_sorted_rmdup.csv", deseq2_dataset_sorted_rmdup=deseq2_dataset_sorted_rmdup, deseq2_result=deseq2_result)
+
+rule run_deseq2_sorted:
+                input:
+                        expand("{counts_sorted_dir}/{deseq2_input_sorted}.csv", counts_sorted_dir=counts_sorted_dir, deseq2_input_sorted=deseq2_input_sorted)
+                output:
+                        r1="{deseq2_dataset_sorted}/diffexp_genes/{deseq2_result}_diffexp_sorted.csv",
+                        r2="{deseq2_dataset_sorted}/rlog_expression/{deseq2_result}_rlog_sorted.csv",
+                        r3="{deseq2_dataset_sorted}/PCA/{deseq2_result}_pca_sorted.png",
+                        r4="{deseq2_dataset_sorted}/heatmaps/{deseq2_result}_heatmap_sorted.png",
+                        r5="{deseq2_dataset_sorted}/volcano_plot/{deseq2_result}_volcano_sorted.png"
+                params:
+                        strategy_list = lambda deseq2_result: deseq2_strategy[deseq2_result.deseq2_result]
+                    
+                shell:
+                    """
+                        mkdir -p {deseq2_dir} 
+                        mkdir -p {deseq2_dataset_sorted}
+                        mkdir -p {deseq2_dataset_sorted}/diffexp_genes/
+                        mkdir -p {deseq2_dataset_sorted}/rlog_expression/
+                        mkdir -p {deseq2_dataset_sorted}/PCA/
+                        mkdir -p {deseq2_dataset_sorted}/heatmaps/
+                        mkdir -p {deseq2_dataset_sorted}/volcano_plot/
+                        {argos_R} {deseq2_R} {counts_sorted_dir}/ {params.strategy_list} {deseq2_dataset_sorted}/diffexp_genes/{wildcards.deseq2_result}_diffexp_sorted {deseq2_dataset_sorted}/rlog_expression/{wildcards.deseq2_result}_rlog_sorted {deseq2_dataset_sorted}/PCA/{wildcards.deseq2_result}_pca_sorted {deseq2_dataset_sorted}/heatmaps/{wildcards.deseq2_result}_heatmap_sorted {deseq2_dataset_sorted}/volcano_plot/{wildcards.deseq2_result}_volcano_sorted {ref_genome}
+
+                    """
+
+rule run_deseq2_rmdup:
+                input:
+                        expand("{counts_rmdup_dir}/{deseq2_input_rmdup}.csv", counts_rmdup_dir=counts_rmdup_dir, deseq2_input_rmdup=deseq2_input_rmdup)
+ 
+                output:
+                        r1="{deseq2_dataset_sorted_rmdup}/diffexp_genes/{deseq2_result}_diffexp_sorted_rmdup.csv",
+                        r2="{deseq2_dataset_sorted_rmdup}/rlog_expression/{deseq2_result}_rlog_sorted_rmdup.csv",
+                        r3="{deseq2_dataset_sorted_rmdup}/PCA/{deseq2_result}_pca_sorted_rmdup.png",
+                        r4="{deseq2_dataset_sorted_rmdup}/heatmaps/{deseq2_result}_heatmap_sorted_rmdup.png",
+                        r5="{deseq2_dataset_sorted_rmdup}/volcano_plot/{deseq2_result}_volcano_sorted_rmdup.png"
+                params:
+                        strategy_list = lambda deseq2_result: deseq2_strategy[deseq2_result.deseq2_result]
+                shell:
+                    """
+                        mkdir -p {deseq2_dir} 
+                        mkdir -p {deseq2_dataset_sorted_rmdup}
+                        mkdir -p {deseq2_dataset_sorted_rmdup}/diffexp_genes/
+                        mkdir -p {deseq2_dataset_sorted_rmdup}/rlog_expression/
+                        mkdir -p {deseq2_dataset_sorted_rmdup}/PCA/
+                        mkdir -p {deseq2_dataset_sorted_rmdup}/heatmaps/
+                        mkdir -p {deseq2_dataset_sorted_rmdup}/volcano_plot/
+                        {argos_R} {deseq2_R} {counts_rmdup_dir}/ {params.strategy_list} {deseq2_dataset_sorted_rmdup}/diffexp_genes/{wildcards.deseq2_result}_diffexp_sorted_rmdup {deseq2_dataset_sorted_rmdup}/rlog_expression/{wildcards.deseq2_result}_rlog_sorted_rmdup {deseq2_dataset_sorted_rmdup}/PCA/{wildcards.deseq2_result}_pca_sorted_rmdup {deseq2_dataset_sorted_rmdup}/heatmaps/{wildcards.deseq2_result}_heatmap_sorted_rmdup {deseq2_dataset_sorted_rmdup}/volcano_plot/{wildcards.deseq2_result}_volcano_sorted_rmdup {ref_genome}
+
+                    """
+
+rule run_zscore_sorted:
+                input:
+                        expand(config["deseq2_dataset_sorted"] + "/rlog_expression/{{deseq2_result}}_rlog_sorted.csv")
+                output:
+                        "{deseq2_dataset_sorted}/rlog_expression_zscore/{deseq2_result}_rlog_sorted_zscore.csv"
+                shell:
+                    """
+                        mkdir -p {deseq2_dataset_sorted}/rlog_expression_zscore/
+                        /mnt/storage/dept/pedonc/src/miniconda2/envs/snakemake/bin/python tool/zscore.py -f {deseq2_dataset_sorted}/rlog_expression/{wildcards.deseq2_result}_rlog_sorted.csv
+                    """
+
+rule run_zscore_rmdup:
+                input:
+                        expand(config['deseq2_dataset_sorted_rmdup'] + "/rlog_expression/{{deseq2_result}}_rlog_sorted_rmdup.csv")
+                output:
+                        "{deseq2_dataset_sorted_rmdup}/rlog_expression_zscore/{deseq2_result}_rlog_sorted_rmdup_zscore.csv"
+                shell:
+                    """
+                        mkdir -p {deseq2_dataset_sorted_rmdup}/rlog_expression_zscore/
+                        /mnt/storage/dept/pedonc/src/miniconda2/envs/snakemake/bin/python tool/zscore.py -f {deseq2_dataset_sorted_rmdup}/rlog_expression/{wildcards.deseq2_result}_rlog_sorted_rmdup.csv
+                    """
